@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'apps.drivers',
     'apps.buses',
     'apps.payments',
+    'apps.transactions',
     'apps.fleet',
 ]
 
@@ -102,6 +103,8 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
+WAYBILL_RATE_MULTIPLIER = os.getenv('WAYBILL_RATE_MULTIPLIER', '25.00')
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

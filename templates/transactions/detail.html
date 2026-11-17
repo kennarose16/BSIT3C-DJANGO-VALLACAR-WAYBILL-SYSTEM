@@ -1,0 +1,52 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl transaction-detail">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle"><a href="{% url 'transactions:transaction_list' %}">Transactions</a></div>
+        <h2 class="page-title">Waybill {{ transaction.transaction_id }}</h2>
+      </div>
+      <div class="col-auto ms-auto d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="{% url 'transactions:transaction_list' %}"><i class="fas fa-arrow-left me-2"></i>Back</a>
+        <button class="btn btn-primary" type="button" onclick="window.print()"><i class="fas fa-print me-2"></i>Print Waybill</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">Transaction details</h3>
+      <div class="d-flex gap-2">
+        {% if transaction.payment_status == 'paid' %}<span class="badge bg-success-lt text-success">Paid</span>{% elif transaction.payment_status == 'unpaid' %}<span class="badge bg-warning-lt text-warning">Unpaid</span>{% else %}<span class="badge bg-secondary-lt text-secondary">Pending payment</span>{% endif %}
+        {% if transaction.status == 'completed' %}<span class="badge bg-success-lt text-success">Delivered</span>
+        {% elif transaction.status == 'in_transit' %}<span class="badge bg-info-lt text-info">In Transit</span>
+        {% else %}<span class="badge bg-warning-lt text-warning">Trip pending</span>{% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-4 text-muted">Transaction ID</dt><dd class="col-sm-8 fw-semibold">{{ transaction.transaction_id }}</dd>
+        <dt class="col-sm-4 text-muted">Fleet number</dt><dd class="col-sm-8">{{ transaction.bus.fleet_number }}</dd>
+        <dt class="col-sm-4 text-muted">Plate number</dt><dd class="col-sm-8">{{ transaction.bus.plate_number }}</dd>
+        <dt class="col-sm-4 text-muted">Sender</dt><dd class="col-sm-8">{{ transaction.sender_name }}</dd>
+        <dt class="col-sm-4 text-muted">Receiver</dt><dd class="col-sm-8">{{ transaction.receiver_name }}</dd>
+        <dt class="col-sm-4 text-muted">Destination</dt><dd class="col-sm-8">{{ transaction.destination }}</dd>
+        <dt class="col-sm-4 text-muted">Waybill amount</dt><dd class="col-sm-8 fw-semibold">{% if transaction.amount != None %}₱{{ transaction.amount|floatformat:2 }}{% else %}Not priced{% endif %}</dd>
+        <dt class="col-sm-4 text-muted">Payment status</dt><dd class="col-sm-8">{{ transaction.get_payment_status_display }}</dd>
+        <dt class="col-sm-4 text-muted">Created</dt><dd class="col-sm-8">{{ transaction.created_at|date:'M j, Y H:i' }}</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+{% if auto_print %}
+<script>window.addEventListener('load', function() { window.print(); });</script>
+{% endif %}
+<style>
+@media print {
+  .dh-sidebar, .page-header, .dh-footer, .footer, #offcanvasSettings { display: none !important; }
+  .page-wrapper { margin: 0 !important; }
+  .transaction-detail { max-width: 100% !important; padding: 0 !important; }
+  .card { border: 1px solid #999 !important; box-shadow: none !important; }
+}
+</style>
+{% endblock %}

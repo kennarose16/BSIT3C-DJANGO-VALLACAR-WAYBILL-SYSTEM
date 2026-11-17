@@ -1,0 +1,364 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl">
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle">Operations</div>
+        <h2 class="page-title">Transactions</h2>
+      </div>
+      <div class="col-auto ms-auto">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#transactionModal">
+          <i class="fas fa-plus me-2"></i>Create Transaction
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row row-cards mb-3">
+    <div class="col-sm-6 col-lg-4"><div class="card card-sm"><div class="card-body"><div class="subheader">Total Transactions</div><div class="h1 mb-0" id="summaryTotal">{{ summary.total }}</div></div></div></div>
+    <div class="col-sm-6 col-lg-4"><div class="card card-sm"><div class="card-body"><div class="subheader">Total Revenue (Paid)</div><div class="h1 mb-0" id="summaryRevenue">₱{{ summary.revenue|floatformat:2 }}</div></div></div></div>
+    <div class="col-sm-6 col-lg-4"><div class="card card-sm"><div class="card-body"><div class="subheader">Pending Payments</div><div class="h1 mb-0" id="summaryPending">₱{{ summary.pending|floatformat:2 }}</div></div></div></div>
+  </div>
+
+  <div id="transactionNotice" class="alert d-none" role="status" aria-live="polite"></div>
+  <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
+    <form method="get" class="d-flex gap-2 flex-wrap" role="search">
+      <div class="input-group" style="max-width: 420px;">
+        <input class="form-control" type="search" name="q" value="{{ query }}" placeholder="Search transaction, fleet, sender, receiver" aria-label="Search transactions">
+        <button class="btn btn-outline-secondary" type="submit" title="Search"><i class="fas fa-search"></i></button>
+      </div>
+      <select class="form-select" name="payment_status" aria-label="Filter by payment status" style="max-width: 170px;" onchange="this.form.requestSubmit()">
+        <option value="">All payments</option>
+        {% for value, label in payment_status_choices %}
+        <option value="{{ value }}" {% if selected_payment_status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select class="form-select" name="trip_status" aria-label="Filter by trip status" style="max-width: 170px;" onchange="this.form.requestSubmit()">
+        <option value="">All trips</option>
+        {% for value, label in trip_status_choices %}
+        <option value="{{ value }}" {% if selected_trip_status == value %}selected{% endif %}>{% if value == 'completed' %}Delivered{% else %}{{ label }}{% endif %}</option>
+        {% endfor %}
+      </select>
+      {% if query or selected_payment_status or selected_trip_status %}<a class="btn btn-outline-secondary" href="{% url 'transactions:transaction_list' %}" title="Clear filters">Clear</a>{% endif %}
+    </form>
+    <span class="text-muted small" id="transactionCount">{{ transactions|length }} transaction{{ transactions|length|pluralize }}</span>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table" id="transactionsTable">
+        <thead>
+          <tr>
+            <th>Waybill / ID</th>
+            <th>Fleet No. &amp; Plate</th>
+            <th>Sender &amp; Receiver</th>
+            <th>Destination</th>
+            <th>Amount</th>
+            <th>Payment Status</th>
+            <th>Trip Status</th>
+            <th class="w-1">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="transactionsTableBody">
+          {% for transaction in transactions %}
+          <tr data-id="{{ transaction.pk }}" data-search="{{ transaction.transaction_id|lower }} {{ transaction.bus.fleet_number|lower }} {{ transaction.bus.plate_number|lower }} {{ transaction.sender_name|lower }} {{ transaction.receiver_name|lower }} {{ transaction.destination|lower }}" data-payment-status="{{ transaction.payment_status }}" data-trip-status="{{ transaction.status }}">
+            <td class="fw-semibold">{{ transaction.transaction_id }}</td>
+            <td><span class="fw-semibold">{{ transaction.bus.fleet_number }}</span><br><span class="text-muted small">{{ transaction.bus.plate_number }}</span></td>
+            <td>{{ transaction.sender_name }}<br><span class="text-muted small">To: {{ transaction.receiver_name }}</span></td>
+            <td>{{ transaction.destination }}</td>
+            <td>{% if transaction.amount != None %}₱{{ transaction.amount|floatformat:2 }}{% else %}<span class="text-muted">Not priced</span>{% endif %}</td>
+            <td>{% if transaction.payment_status == 'paid' %}<span class="badge bg-success-lt text-success">Paid</span>{% elif transaction.payment_status == 'unpaid' %}<span class="badge bg-warning-lt text-warning">Unpaid</span>{% else %}<span class="badge bg-secondary-lt text-secondary">Pending</span>{% endif %}</td>
+            <td>{% if transaction.status == 'completed' %}<span class="badge bg-success-lt text-success">Delivered</span>{% elif transaction.status == 'in_transit' %}<span class="badge bg-info-lt text-info">In Transit</span>{% else %}<span class="badge bg-warning-lt text-warning">Pending</span>{% endif %}</td>
+            <td><div class="d-flex gap-1">
+              {% if transaction.payment_status != 'paid' %}<button class="btn btn-ghost-success btn-sm" type="button" data-action="mark-paid" data-url="{% url 'transactions:transaction_mark_paid' transaction.pk %}"><i class="fas fa-check me-1"></i>Mark as Paid</button>{% endif %}
+              <a class="btn btn-ghost-secondary btn-sm" href="{% url 'transactions:transaction_detail' transaction.pk %}"><i class="fas fa-receipt me-1"></i>View Receipt</a>
+              <button class="btn btn-ghost-danger btn-sm" type="button" data-action="delete" data-url="{% url 'transactions:transaction_delete' transaction.pk %}"><i class="fas fa-trash me-1"></i>Delete</button>
+            </div></td>
+          </tr>
+          {% empty %}
+          <tr id="transactionsEmpty"><td colspan="8" class="text-center text-muted py-5">No transactions match these filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="transactionModal" tabindex="-1" aria-labelledby="transactionModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title" id="transactionModalTitle">Create transaction</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <form id="transactionForm" novalidate>
+      {% csrf_token %}
+      <div class="modal-body">
+        <div id="transactionFormError" class="alert alert-danger d-none" role="alert"></div>
+        <div class="mb-3"><label class="form-label" for="{{ form.bus.id_for_label }}">Fleet No.</label>{{ form.bus }}</div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6"><label class="form-label" for="transactionPlate">Plate Number</label><input id="transactionPlate" class="form-control" type="text" readonly></div>
+          <div class="col-md-6"><label class="form-label" for="transactionCapacity">Fleet Capacity</label><input id="transactionCapacity" class="form-control" type="text" readonly></div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="{{ form.sender_name.id_for_label }}">Sender</label>
+            {{ form.sender_name }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="{{ form.receiver_name.id_for_label }}">Receiver</label>
+            {{ form.receiver_name }}
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="{{ form.destination_choice.id_for_label }}">Destination</label>
+            {{ form.destination_choice }}
+          </div>
+          <div class="col-md-6"><label class="form-label" for="transactionBaseFare">Destination Base Rate</label><input id="transactionBaseFare" class="form-control" type="text" readonly></div>
+          <div class="col-md-6"><label class="form-label" for="{{ form.amount.id_for_label }}">Amount (PHP)</label>{{ form.amount }}<div class="form-hint">Base rate + (fleet capacity × ₱{{ rate_multiplier|floatformat:2 }}); edit to override.</div></div>
+          <div class="col-md-6">
+            <label class="form-label" for="{{ form.payment_status.id_for_label }}">Payment Status</label>
+            {{ form.payment_status }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="{{ form.status.id_for_label }}">Trip Status</label>
+            {{ form.status }}
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="transactionSubmit">Save transaction</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<script>
+(function() {
+  const modal = document.getElementById('transactionModal');
+  const form = document.getElementById('transactionForm');
+  const errorBox = document.getElementById('transactionFormError');
+  const tableBody = document.getElementById('transactionsTableBody');
+  const submitButton = document.getElementById('transactionSubmit');
+  const notice = document.getElementById('transactionNotice');
+  const busSelect = document.getElementById('{{ form.bus.id_for_label }}');
+  const routeSelect = document.getElementById('{{ form.destination_choice.id_for_label }}');
+  const amountInput = document.getElementById('{{ form.amount.id_for_label }}');
+  const searchInput = document.querySelector('input[name="q"]');
+  const paymentFilter = document.querySelector('select[name="payment_status"]');
+  const tripFilter = document.querySelector('select[name="trip_status"]');
+  const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+  let selectedBus = null;
+
+  function formatCurrency(value) {
+    return new Intl.NumberFormat('en-PH', {style: 'currency', currency: 'PHP'}).format(Number(value || 0));
+  }
+
+  function makeBadge(status, label, type) {
+    const badge = document.createElement('span');
+    const colors = type === 'payment'
+      ? {paid: 'bg-success-lt text-success', unpaid: 'bg-warning-lt text-warning', pending: 'bg-secondary-lt text-secondary'}
+      : {completed: 'bg-success-lt text-success', in_transit: 'bg-info-lt text-info', pending: 'bg-warning-lt text-warning'};
+    badge.className = 'badge ' + (colors[status] || colors.pending);
+    badge.textContent = type === 'trip' && status === 'completed' ? 'Delivered' : label;
+    return badge;
+  }
+
+  function makeAction(text, icon, action, url, className) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn ' + className + ' btn-sm';
+    button.dataset.action = action;
+    button.dataset.url = url;
+    const iconElement = document.createElement('i');
+    iconElement.className = 'fas ' + icon + ' me-1';
+    button.append(iconElement, document.createTextNode(text));
+    return button;
+  }
+
+  function makeRow(item) {
+    const row = document.createElement('tr');
+    row.dataset.id = item.id;
+    row.dataset.search = [item.transaction_id, item.fleet_number, item.plate_number, item.sender_name, item.receiver_name, item.destination].join(' ').toLowerCase();
+    row.dataset.paymentStatus = item.payment_status;
+    row.dataset.tripStatus = item.status;
+    const idCell = document.createElement('td');
+    idCell.className = 'fw-semibold';
+    idCell.textContent = item.transaction_id;
+    const busCell = document.createElement('td');
+    const plate = document.createElement('span');
+    plate.className = 'text-muted small';
+    plate.textContent = item.plate_number;
+    busCell.append(document.createTextNode(item.fleet_number), document.createElement('br'), plate);
+    const peopleCell = document.createElement('td');
+    peopleCell.append(document.createTextNode(item.sender_name), document.createElement('br'));
+    const receiver = document.createElement('span');
+    receiver.className = 'text-muted small';
+    receiver.textContent = 'To: ' + item.receiver_name;
+    peopleCell.append(receiver);
+    const destinationCell = document.createElement('td');
+    destinationCell.textContent = item.destination;
+    const amountCell = document.createElement('td');
+    amountCell.textContent = item.amount ? formatCurrency(item.amount) : 'Not priced';
+    const paymentCell = document.createElement('td');
+    paymentCell.append(makeBadge(item.payment_status, item.payment_status_display, 'payment'));
+    const tripCell = document.createElement('td');
+    tripCell.append(makeBadge(item.status, item.status_display, 'trip'));
+    const actionsCell = document.createElement('td');
+    const actions = document.createElement('div');
+    actions.className = 'd-flex gap-1 flex-wrap';
+    if (item.payment_status !== 'paid') actions.append(makeAction('Mark as Paid', 'fa-check', 'mark-paid', item.mark_paid_url, 'btn-ghost-success'));
+    const receipt = document.createElement('a');
+    receipt.className = 'btn btn-ghost-secondary btn-sm';
+    receipt.href = item.receipt_url;
+    receipt.innerHTML = '<i class="fas fa-receipt me-1"></i>View Receipt';
+    actions.append(receipt, makeAction('Delete', 'fa-trash', 'delete', item.delete_url, 'btn-ghost-danger'));
+    actionsCell.append(actions);
+    row.append(idCell, busCell, peopleCell, destinationCell, amountCell, paymentCell, tripCell, actionsCell);
+    return row;
+  }
+
+  function updateSummary(summary) {
+    document.getElementById('summaryTotal').textContent = summary.total;
+    document.getElementById('summaryRevenue').textContent = formatCurrency(summary.revenue);
+    document.getElementById('summaryPending').textContent = formatCurrency(summary.pending);
+  }
+
+  function updateCount() {
+    const count = tableBody.querySelectorAll('tr[data-id]').length;
+    document.getElementById('transactionCount').textContent = count + ' transaction' + (count === 1 ? '' : 's');
+    if (!count && !document.getElementById('transactionsEmpty')) {
+      const empty = document.createElement('tr');
+      empty.id = 'transactionsEmpty';
+      const cell = document.createElement('td');
+      cell.colSpan = 8;
+      cell.className = 'text-center text-muted py-5';
+      cell.textContent = 'No transactions match these filters.';
+      empty.append(cell);
+      tableBody.append(empty);
+    }
+  }
+
+  function matchesFilters(item) {
+    const query = searchInput.value.trim().toLowerCase();
+    const matchesQuery = !query || [item.transaction_id, item.fleet_number, item.plate_number, item.sender_name, item.receiver_name, item.destination].some(value => value.toLowerCase().includes(query));
+    return matchesQuery && (!paymentFilter.value || paymentFilter.value === item.payment_status) && (!tripFilter.value || tripFilter.value === item.status);
+  }
+
+  function showNotice(message, type) {
+    notice.className = 'alert alert-' + type;
+    notice.textContent = message;
+  }
+
+  function loadBusOptions() {
+    const busId = busSelect.value;
+    routeSelect.innerHTML = '<option value="">Select destination</option>';
+    ['transactionPlate', 'transactionCapacity', 'transactionBaseFare'].forEach(id => { document.getElementById(id).value = ''; });
+    amountInput.value = '';
+    selectedBus = null;
+    if (!busId) return;
+    const url = '{% url "transactions:transaction_bus_data" 0 %}'.replace('/0/', '/' + encodeURIComponent(busId) + '/');
+    fetch(url).then(response => response.json().then(data => ({response, data})))
+      .then(({response, data}) => {
+        if (!response.ok) throw new Error(data.error || 'Unable to load bus routes.');
+        selectedBus = data;
+        document.getElementById('transactionPlate').value = data.plate_number;
+        document.getElementById('transactionCapacity').value = data.capacity;
+        data.routes.forEach(route => {
+          const option = new Option(route.destination + ' - ' + route.name + ' (PHP ' + Number(route.base_fare).toFixed(2) + ')', 'route:' + route.id);
+          option.dataset.baseFare = route.base_fare;
+          routeSelect.add(option);
+        });
+        data.presets.forEach(preset => {
+          const option = new Option(preset.name + ' (PHP ' + Number(preset.base_fare).toFixed(2) + ')', 'preset:' + preset.key);
+          option.dataset.baseFare = preset.base_fare;
+          routeSelect.add(option);
+        });
+        if (!data.routes.length) {
+          errorBox.textContent = 'No destinations are configured for this bus yet.';
+          errorBox.classList.remove('d-none');
+        }
+      }).catch(error => {
+        errorBox.textContent = error.message;
+        errorBox.classList.remove('d-none');
+      });
+  }
+
+  function updatePricePreview() {
+    const option = routeSelect.selectedOptions[0];
+    if (!selectedBus || !option || !option.dataset.baseFare) {
+      document.getElementById('transactionBaseFare').value = '';
+      amountInput.value = '';
+      return;
+    }
+    const baseFare = Number(option.dataset.baseFare);
+    const amount = baseFare + Number(selectedBus.capacity) * Number(selectedBus.rate_multiplier);
+    document.getElementById('transactionBaseFare').value = formatCurrency(baseFare);
+    amountInput.value = amount.toFixed(2);
+  }
+
+  busSelect.addEventListener('change', loadBusOptions);
+  routeSelect.addEventListener('change', updatePricePreview);
+  modal.addEventListener('hidden.bs.modal', function() {
+    form.reset();
+    routeSelect.innerHTML = '<option value="">Select destination</option>';
+    selectedBus = null;
+    ['transactionPlate', 'transactionCapacity', 'transactionBaseFare'].forEach(id => { document.getElementById(id).value = ''; });
+    amountInput.value = '';
+    errorBox.classList.add('d-none');
+    errorBox.textContent = '';
+  });
+
+  form.addEventListener('submit', function(event) {
+    event.preventDefault();
+    errorBox.classList.add('d-none');
+    submitButton.disabled = true;
+    fetch('{% url "transactions:transaction_create_ajax" %}', {method: 'POST', headers: {'X-CSRFToken': csrfToken}, body: new FormData(form)})
+      .then(response => response.json().then(data => ({response, data})))
+      .then(({response, data}) => {
+        if (!response.ok || data.error) throw new Error(data.error || 'Unable to save transaction.');
+        const item = data.transaction;
+        const emptyRow = document.getElementById('transactionsEmpty');
+        if (emptyRow) emptyRow.remove();
+        if (matchesFilters(item)) tableBody.prepend(makeRow(item));
+        updateSummary(data.summary);
+        updateCount();
+        const visible = matchesFilters(item);
+        showNotice(visible ? item.transaction_id + ' was created.' : item.transaction_id + ' was created but does not match the current filters.', visible ? 'success' : 'info');
+        bootstrap.Modal.getOrCreateInstance(modal).hide();
+      }).catch(error => {
+        errorBox.textContent = error.message;
+        errorBox.classList.remove('d-none');
+      }).finally(() => { submitButton.disabled = false; });
+  });
+
+  tableBody.addEventListener('click', function(event) {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const action = button.dataset.action;
+    if (action === 'delete' && !window.confirm('Delete this transaction? This cannot be undone.')) return;
+    button.disabled = true;
+    fetch(button.dataset.url, {method: 'POST', headers: {'X-CSRFToken': csrfToken}})
+      .then(response => response.json().then(data => ({response, data})))
+      .then(({response, data}) => {
+        if (!response.ok || data.error) throw new Error(data.error || 'Unable to update transaction.');
+        const row = button.closest('tr');
+        if (action === 'delete') {
+          row.remove();
+          showNotice('Transaction deleted.', 'success');
+        } else {
+          const updatedRow = makeRow(data.transaction);
+          if (matchesFilters(data.transaction)) row.replaceWith(updatedRow);
+          else row.remove();
+          showNotice('Payment marked as paid.', 'success');
+        }
+        updateSummary(data.summary);
+        updateCount();
+      }).catch(error => {
+        showNotice(error.message, 'danger');
+        button.disabled = false;
+      });
+  });
+})();
+</script>
+{% endblock %}

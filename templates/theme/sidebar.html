@@ -51,15 +51,6 @@
         </li>
 
         <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.app_name == 'info' %}active{% endif %}" href="{% url 'info:info_list' %}" data-turbo-frame="main-content">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-address-card"></i>
-            </span>
-            <span class="nav-link-title">Info</span>
-          </a>
-        </li>
-
-        <li class="nav-item">
           <a class="nav-link {% if request.resolver_match.app_name == 'drivers' %}active{% endif %}" href="{% url 'drivers:driver_list' %}" data-turbo-frame="main-content">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <i class="nav-icon fas fa-id-card"></i>
@@ -78,11 +69,11 @@
         </li>
 
         <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.app_name == 'payments' %}active{% endif %}" href="{% url 'payments:payment_list' %}" data-turbo-frame="main-content">
+          <a class="nav-link {% if request.resolver_match.app_name == 'transactions' %}active{% endif %}" href="{% url 'transactions:transaction_list' %}" data-turbo-frame="main-content">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-wallet"></i>
+              <i class="nav-icon fas fa-receipt"></i>
             </span>
-            <span class="nav-link-title">Payments</span>
+            <span class="nav-link-title">Transactions</span>
           </a>
         </li>
 
