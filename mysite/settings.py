@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -41,6 +42,9 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.users',
     'apps.info',
+    'apps.drivers',
+    'apps.buses',
+    'apps.fleet',
 ]
 
 MIDDLEWARE = [
@@ -74,18 +78,29 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+# Use SQLite by default for local development because the MySQL server is often not running
+# in a standard XAMPP/Python setup. Set WAYBILL_DB_ENGINE=mysql to opt back in.
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'bsitcrud',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '3306',
+DB_ENGINE = os.getenv('WAYBILL_DB_ENGINE', 'sqlite3').lower()
+
+if DB_ENGINE == 'mysql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'apps.core.backends.mysql',
+            'NAME': os.getenv('WAYBILL_DB_NAME', 'waybilldb'),
+            'USER': os.getenv('WAYBILL_DB_USER', 'root'),
+            'PASSWORD': os.getenv('WAYBILL_DB_PASSWORD', ''),
+            'HOST': os.getenv('WAYBILL_DB_HOST', 'localhost'),
+            'PORT': os.getenv('WAYBILL_DB_PORT', '3306'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

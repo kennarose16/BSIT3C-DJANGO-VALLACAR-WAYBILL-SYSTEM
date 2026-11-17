@@ -1,0 +1,62 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl">
+  {% include "fleet/_messages.html" %}
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle">Waybill management</div>
+        <h2 class="page-title">Fleet</h2>
+      </div>
+      <div class="col-auto ms-auto d-flex gap-2">
+        <a class="btn btn-outline-primary" href="{% url 'drivers:driver_list' %}"><i class="fas fa-id-card me-2"></i>Drivers</a>
+        <a class="btn btn-primary" href="{% url 'buses:bus_list' %}"><i class="fas fa-bus me-2"></i>Buses</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="row row-cards mb-3">
+    <div class="col-sm-6 col-lg-4">
+      <div class="card"><div class="card-body">
+        <div class="subheader">Drivers</div>
+        <div class="h1 mb-0">{{ driver_count }}</div>
+      </div></div>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+      <div class="card"><div class="card-body">
+        <div class="subheader">Buses</div>
+        <div class="h1 mb-0">{{ bus_count }}</div>
+      </div></div>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+      <div class="card"><div class="card-body">
+        <div class="subheader">Routes</div>
+        <div class="h1 mb-0">{{ route_count }}</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Buses and assigned drivers</h3></div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead><tr><th>Fleet no.</th><th>Plate</th><th>Driver</th><th>Status</th><th>Routes</th><th></th></tr></thead>
+        <tbody>
+          {% for bus in buses %}
+          <tr>
+            <td class="fw-semibold">{{ bus.fleet_number }}</td>
+            <td>{{ bus.plate_number }}</td>
+            <td>{{ bus.driver|default:"Unassigned" }}</td>
+            <td>{{ bus.get_status_display }}</td>
+            <td>{{ bus.routes.count }}</td>
+            <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'buses:route_list' bus.pk %}">Manage routes</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-4">No buses have been added.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

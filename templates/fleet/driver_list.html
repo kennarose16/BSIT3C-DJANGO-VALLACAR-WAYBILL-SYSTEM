@@ -1,0 +1,158 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl">
+  {% include "fleet/_messages.html" %}
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col"><div class="page-pretitle"><a href="{% url 'fleet:dashboard' %}">Fleet</a></div><h2 class="page-title">Drivers</h2></div>
+      <div class="col-auto ms-auto"><button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#driverModal" data-mode="create"><i class="fas fa-plus me-2"></i>Add driver</button></div>
+    </div>
+  </div>
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="fleetToastContainer" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}<div class="toast crud-toast" role="status" aria-atomic="true" data-bs-delay="4000"><div class="d-flex align-items-center"><span class="crud-toast-icon" aria-hidden="true"><i class="fas fa-circle-check"></i></span><div class="toast-body">{{ message }}</div><button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div></div>{% endfor %}
+  </div>
+  <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
+    <form method="get" class="input-group" style="max-width: 420px;">
+      <input class="form-control" type="search" name="q" value="{{ query }}" placeholder="Search drivers" aria-label="Search drivers">
+      <button class="btn btn-outline-secondary" type="submit" title="Search"><i class="fas fa-search"></i></button>
+      {% if query %}<a class="btn btn-outline-secondary" href="{% url 'drivers:driver_list' %}" title="Clear search"><i class="fas fa-times"></i></a>{% endif %}
+    </form>
+    <a class="btn btn-outline-secondary" href="{% url 'buses:bus_list' %}">Buses</a>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table">
+        <thead><tr><th>Driver</th><th>License no.</th><th>Phone</th><th>Email</th><th>Assigned buses</th><th>Status</th><th class="w-1">Actions</th></tr></thead>
+        <tbody>
+          {% for driver in drivers %}
+          <tr>
+            <td class="fw-semibold">{{ driver }}</td><td>{{ driver.license_number }}</td><td>{{ driver.phone_number|default:"—" }}</td><td>{{ driver.email|default:"—" }}</td>
+            <td>{% for bus in driver.buses.all %}<a href="{% url 'buses:bus_list' %}">{{ bus.fleet_number }}</a>{% empty %}<span class="text-muted">Unassigned</span>{% endfor %}</td>
+            <td>{% if driver.is_active %}<span class="badge bg-success-lt text-success">Active</span>{% else %}<span class="badge bg-secondary-lt text-secondary">Inactive</span>{% endif %}</td>
+            <td><div class="d-flex gap-1">
+              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#driverModal" data-mode="edit" data-id="{{ driver.pk }}" data-first-name="{{ driver.first_name }}" data-last-name="{{ driver.last_name }}" data-license-number="{{ driver.license_number }}" data-phone-number="{{ driver.phone_number }}" data-email="{{ driver.email }}" data-is-active="{{ driver.is_active|yesno:'true,false' }}" title="Edit {{ driver }}"><i class="fas fa-edit text-primary"></i></button>
+              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteDriverModal" data-id="{{ driver.pk }}" data-name="{{ driver }}" title="Delete {{ driver }}"><i class="fas fa-trash-alt text-danger"></i></button>
+            </div></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-5">No drivers found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if drivers.paginator.num_pages > 1 %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <span class="text-muted">{{ drivers.start_index }}–{{ drivers.end_index }} of {{ drivers.paginator.count }}</span>
+      <nav class="d-flex gap-2">
+        {% if drivers.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ drivers.previous_page_number }}&q={{ query|urlencode }}">Previous</a>{% endif %}
+        <span class="btn btn-sm btn-outline-secondary disabled">{{ drivers.number }} / {{ drivers.paginator.num_pages }}</span>
+        {% if drivers.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ drivers.next_page_number }}&q={{ query|urlencode }}">Next</a>{% endif %}
+      </nav>
+    </div>
+    {% endif %}
+  </div>
+</div>
+<div class="modal modal-blur fade" id="driverModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="driverModalTitle">Add driver</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <form id="driverForm">{% csrf_token %}<input type="hidden" name="id" id="driver_id">
+      <div class="modal-body"><div id="driverFormError" class="alert alert-danger d-none" role="alert"></div><div class="row g-3">
+        <div class="col-md-6"><label class="form-label" for="driver_first_name">First name</label><input class="form-control" type="text" name="first_name" id="driver_first_name" maxlength="100" required></div>
+        <div class="col-md-6"><label class="form-label" for="driver_last_name">Last name</label><input class="form-control" type="text" name="last_name" id="driver_last_name" maxlength="100" required></div>
+        <div class="col-12"><label class="form-label" for="driver_license_number">License number</label><input class="form-control" type="text" name="license_number" id="driver_license_number" maxlength="50" required></div>
+        <div class="col-md-6"><label class="form-label" for="driver_phone_number">Phone <span class="text-muted">(optional)</span></label><input class="form-control" type="tel" name="phone_number" id="driver_phone_number" maxlength="30"></div>
+        <div class="col-md-6"><label class="form-label" for="driver_email">Email <span class="text-muted">(optional)</span></label><input class="form-control" type="email" name="email" id="driver_email"></div>
+        <div class="col-12"><label class="form-check"><input class="form-check-input" type="checkbox" name="is_active" id="driver_is_active" checked><span class="form-check-label">Active driver</span></label></div>
+      </div></div>
+      <div class="modal-footer"><button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" id="driverSubmitBtn">Save driver</button></div>
+    </form>
+  </div></div>
+</div>
+<div class="modal modal-blur fade" id="deleteDriverModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Delete driver</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body"><div id="deleteDriverError" class="alert alert-danger d-none" role="alert"></div><p>Delete <strong id="deleteDriverName"></strong>? Assigned buses will become unassigned.</p></div>
+    <div class="modal-footer"><button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-danger" id="confirmDeleteDriverBtn">Delete</button></div>
+  </div></div>
+</div>
+<script>
+(function() {
+  const modal = document.getElementById('driverModal');
+  const deleteModal = document.getElementById('deleteDriverModal');
+  const form = document.getElementById('driverForm');
+  const errorBox = document.getElementById('driverFormError');
+  const title = document.getElementById('driverModalTitle');
+  const submitButton = document.getElementById('driverSubmitBtn');
+  const deleteError = document.getElementById('deleteDriverError');
+  let currentId = null;
+
+  document.querySelectorAll('#fleetToastContainer .toast').forEach(function(toast) {
+    bootstrap.Toast.getOrCreateInstance(toast).show();
+  });
+
+  function resetForm() {
+    form.reset();
+    document.getElementById('driver_id').value = '';
+    document.getElementById('driver_is_active').checked = true;
+    title.textContent = 'Add driver';
+    submitButton.textContent = 'Save driver';
+    errorBox.classList.add('d-none');
+    errorBox.textContent = '';
+    currentId = null;
+  }
+
+  function refreshAfterClose(element) {
+    element.addEventListener('hidden.bs.modal', function() { window.refreshMainContent(); }, {once: true});
+    bootstrap.Modal.getOrCreateInstance(element).hide();
+  }
+
+  modal.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button || button.getAttribute('data-mode') !== 'edit') { resetForm(); return; }
+    currentId = button.getAttribute('data-id');
+    document.getElementById('driver_id').value = currentId;
+    document.getElementById('driver_first_name').value = button.getAttribute('data-first-name');
+    document.getElementById('driver_last_name').value = button.getAttribute('data-last-name');
+    document.getElementById('driver_license_number').value = button.getAttribute('data-license-number');
+    document.getElementById('driver_phone_number').value = button.getAttribute('data-phone-number');
+    document.getElementById('driver_email').value = button.getAttribute('data-email');
+    document.getElementById('driver_is_active').checked = button.getAttribute('data-is-active') === 'true';
+    title.textContent = 'Edit driver';
+    submitButton.textContent = 'Update driver';
+    errorBox.classList.add('d-none');
+  });
+
+  deleteModal.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) return;
+    currentId = button.getAttribute('data-id');
+    document.getElementById('deleteDriverName').textContent = button.getAttribute('data-name');
+    deleteError.classList.add('d-none');
+    deleteError.textContent = '';
+  });
+
+  form.addEventListener('submit', function(event) {
+    event.preventDefault();
+    fetch('{% url "drivers:driver_save_ajax" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value},
+      body: new FormData(form)
+    }).then(response => response.json().then(data => ({response, data}))).then(({response, data}) => {
+      if (!response.ok || data.error) { errorBox.textContent = data.error || 'Unable to save driver.'; errorBox.classList.remove('d-none'); return; }
+      refreshAfterClose(modal);
+    }).catch(() => { errorBox.textContent = 'Something went wrong.'; errorBox.classList.remove('d-none'); });
+  });
+
+  document.getElementById('confirmDeleteDriverBtn').addEventListener('click', function() {
+    if (!currentId) return;
+    fetch('{% url "drivers:driver_delete_ajax" 0 %}'.replace('/0/', '/' + currentId + '/'), {
+      method: 'POST',
+      headers: {'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value}
+    }).then(response => response.json().then(data => ({response, data}))).then(({response, data}) => {
+      if (!response.ok || data.error) { deleteError.textContent = data.error || 'Unable to delete driver.'; deleteError.classList.remove('d-none'); return; }
+      refreshAfterClose(deleteModal);
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -6,7 +6,7 @@
           <i class="fa-solid fa-shield-halved"></i>
         </span>
         <span class="lh-1">
-          <span class="dh-brand-name">Project<span class="text-warning">V3</span></span>
+          <span class="dh-brand-name">Waybill</span>
           <span class="dh-brand-sub">Management System</span>
         </span>
       </a>
@@ -56,6 +56,24 @@
               <i class="nav-icon fas fa-address-card"></i>
             </span>
             <span class="nav-link-title">Info</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.app_name == 'drivers' %}active{% endif %}" href="{% url 'drivers:driver_list' %}" data-turbo-frame="main-content">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="nav-icon fas fa-id-card"></i>
+            </span>
+            <span class="nav-link-title">Drivers</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.app_name == 'buses' %}active{% endif %}" href="{% url 'buses:bus_list' %}" data-turbo-frame="main-content">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="nav-icon fas fa-bus"></i>
+            </span>
+            <span class="nav-link-title">Buses</span>
           </a>
         </li>
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
     <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
     <title>
-      ProjectV3
+      Waybill
     </title>
     <link rel="icon" href="./favicon-dev.ico" type="image/x-icon"/>
     <link rel="shortcut icon" href="./favicon-dev.ico" type="image/x-icon"/>
@@ -21,10 +21,47 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
     @import url("https://rsms.me/inter/inter.css");
+
+    body.app-shell {
+      background:
+        radial-gradient(circle at top left, rgba(139, 92, 246, 0.12), transparent 26%),
+        radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.10), transparent 30%),
+        linear-gradient(135deg, #f7f7fb 0%, #f2f4fb 38%, #f5f7ff 100%);
+      min-height: 100vh;
+    }
+
+    .page {
+      background: transparent;
+    }
+
+    .page-wrapper {
+      background: rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(1px);
+    }
+
+    .page-body {
+      background: transparent;
+    }
+
+    .navbar-vertical {
+      box-shadow: 0 10px 35px rgba(92, 70, 140, 0.12);
+    }
+
+    .card,
+    .table,
+    .list-group,
+    .form-control,
+    .btn {
+      border-color: rgba(89, 89, 112, 0.08);
+    }
+
+    .card {
+      box-shadow: 0 8px 24px rgba(91, 97, 145, 0.05);
+    }
     </style>
   </head>
 
-  <body>
+  <body class="app-shell">
     <div class="page">
 
         {% if request.user.is_authenticated %}

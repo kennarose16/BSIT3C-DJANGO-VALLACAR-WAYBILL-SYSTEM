@@ -1,0 +1,158 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl">
+  {% include "fleet/_messages.html" %}
+  <div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+      <div class="col"><div class="page-pretitle"><a href="{% url 'fleet:dashboard' %}">Fleet</a></div><h2 class="page-title">Buses</h2></div>
+      <div class="col-auto ms-auto"><button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#busModal" data-mode="create"><i class="fas fa-plus me-2"></i>Add bus</button></div>
+    </div>
+  </div>
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="fleetToastContainer" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}<div class="toast crud-toast" role="status" aria-atomic="true" data-bs-delay="4000"><div class="d-flex align-items-center"><span class="crud-toast-icon" aria-hidden="true"><i class="fas fa-circle-check"></i></span><div class="toast-body">{{ message }}</div><button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div></div>{% endfor %}
+  </div>
+  <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
+    <form method="get" class="input-group" style="max-width: 420px;">
+      <input class="form-control" type="search" name="q" value="{{ query }}" placeholder="Search fleet, plate, or driver" aria-label="Search buses">
+      <button class="btn btn-outline-secondary" type="submit" title="Search"><i class="fas fa-search"></i></button>
+      {% if query %}<a class="btn btn-outline-secondary" href="{% url 'buses:bus_list' %}" title="Clear search"><i class="fas fa-times"></i></a>{% endif %}
+    </form>
+    <a class="btn btn-outline-secondary" href="{% url 'drivers:driver_list' %}">Drivers</a>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-vcenter table-hover card-table">
+        <thead><tr><th>Fleet no.</th><th>Plate</th><th>Capacity</th><th>Assigned driver</th><th>Status</th><th>Routes</th><th class="w-1">Actions</th></tr></thead>
+        <tbody>
+          {% for bus in buses %}
+          <tr>
+            <td class="fw-semibold">{{ bus.fleet_number }}</td><td>{{ bus.plate_number }}</td><td>{{ bus.capacity }}</td><td>{{ bus.driver|default:"Unassigned" }}</td><td>{{ bus.get_status_display }}</td>
+            <td><a href="{% url 'buses:route_list' bus.pk %}">{{ bus.routes.count }} route{{ bus.routes.count|pluralize }}</a></td>
+            <td><div class="d-flex gap-1">
+              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#busModal" data-mode="edit" data-id="{{ bus.pk }}" data-fleet-number="{{ bus.fleet_number }}" data-plate-number="{{ bus.plate_number }}" data-capacity="{{ bus.capacity }}" data-driver-id="{{ bus.driver_id|default_if_none:'' }}" data-driver-label="{{ bus.driver|default:'' }}" data-status="{{ bus.status }}" title="Edit {{ bus.fleet_number }}"><i class="fas fa-edit text-primary"></i></button>
+              <a class="btn btn-ghost-secondary btn-icon btn-sm" href="{% url 'buses:route_list' bus.pk %}" title="Manage routes for {{ bus.fleet_number }}"><i class="fas fa-route text-success"></i></a>
+              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteBusModal" data-id="{{ bus.pk }}" data-name="{{ bus.fleet_number }}" title="Delete {{ bus.fleet_number }}"><i class="fas fa-trash-alt text-danger"></i></button>
+            </div></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-5">No buses found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if buses.paginator.num_pages > 1 %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <span class="text-muted">{{ buses.start_index }}–{{ buses.end_index }} of {{ buses.paginator.count }}</span>
+      <nav class="d-flex gap-2">
+        {% if buses.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ buses.previous_page_number }}&q={{ query|urlencode }}">Previous</a>{% endif %}
+        <span class="btn btn-sm btn-outline-secondary disabled">{{ buses.number }} / {{ buses.paginator.num_pages }}</span>
+        {% if buses.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ buses.next_page_number }}&q={{ query|urlencode }}">Next</a>{% endif %}
+      </nav>
+    </div>
+    {% endif %}
+  </div>
+</div>
+<div class="modal modal-blur fade" id="busModal" tabindex="-1">
+  <div class="modal-dialog modal-md modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="busModalTitle">Add bus</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <form id="busForm">{% csrf_token %}<input type="hidden" name="id" id="bus_id">
+      <div class="modal-body"><div id="busFormError" class="alert alert-danger d-none" role="alert"></div><div class="row g-3">
+        <div class="col-md-6"><label class="form-label" for="bus_fleet_number">Fleet number</label><input class="form-control" type="text" name="fleet_number" id="bus_fleet_number" maxlength="30" required></div>
+        <div class="col-md-6"><label class="form-label" for="bus_plate_number">Plate number</label><input class="form-control" type="text" name="plate_number" id="bus_plate_number" maxlength="20" required></div>
+        <div class="col-md-6"><label class="form-label" for="bus_capacity">Capacity</label><input class="form-control" type="number" name="capacity" id="bus_capacity" min="1" required></div>
+        <div class="col-md-6"><label class="form-label" for="bus_driver">Driver</label><select class="form-select" name="driver" id="bus_driver"><option value="">Unassigned</option>{% for driver in drivers %}<option value="{{ driver.pk }}">{{ driver }}</option>{% endfor %}</select></div>
+        <div class="col-12"><label class="form-label" for="bus_status">Status</label><select class="form-select" name="status" id="bus_status" required><option value="active">Active</option><option value="maintenance">Maintenance</option><option value="inactive">Inactive</option></select></div>
+      </div></div>
+      <div class="modal-footer"><button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" id="busSubmitBtn">Save bus</button></div>
+    </form>
+  </div></div>
+</div>
+<div class="modal modal-blur fade" id="deleteBusModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Delete bus</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body"><div id="deleteBusError" class="alert alert-danger d-none" role="alert"></div><p>Are you sure you want to delete <strong id="deleteBusName"></strong>?</p></div>
+    <div class="modal-footer"><button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-danger" id="confirmDeleteBusBtn">Delete</button></div>
+  </div></div>
+</div>
+<script>
+(function() {
+  const modal = document.getElementById('busModal');
+  const deleteModal = document.getElementById('deleteBusModal');
+  const form = document.getElementById('busForm');
+  const errorBox = document.getElementById('busFormError');
+  const title = document.getElementById('busModalTitle');
+  const submitButton = document.getElementById('busSubmitBtn');
+  const driverSelect = document.getElementById('bus_driver');
+  const deleteError = document.getElementById('deleteBusError');
+  let currentId = null;
+
+  document.querySelectorAll('#fleetToastContainer .toast').forEach(function(toast) { bootstrap.Toast.getOrCreateInstance(toast).show(); });
+
+  function resetForm() {
+    form.reset();
+    document.getElementById('bus_id').value = '';
+    driverSelect.querySelectorAll('[data-dynamic="true"]').forEach(option => option.remove());
+    driverSelect.value = '';
+    document.getElementById('bus_status').value = 'active';
+    title.textContent = 'Add bus';
+    submitButton.textContent = 'Save bus';
+    errorBox.classList.add('d-none');
+    errorBox.textContent = '';
+    currentId = null;
+  }
+
+  function refreshAfterClose(element) {
+    element.addEventListener('hidden.bs.modal', function() { window.refreshMainContent(); }, {once: true});
+    bootstrap.Modal.getOrCreateInstance(element).hide();
+  }
+
+  modal.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button || button.getAttribute('data-mode') !== 'edit') { resetForm(); return; }
+    currentId = button.getAttribute('data-id');
+    document.getElementById('bus_id').value = currentId;
+    document.getElementById('bus_fleet_number').value = button.getAttribute('data-fleet-number');
+    document.getElementById('bus_plate_number').value = button.getAttribute('data-plate-number');
+    document.getElementById('bus_capacity').value = button.getAttribute('data-capacity');
+    const driverId = button.getAttribute('data-driver-id');
+    if (driverId && !driverSelect.querySelector('option[value="' + CSS.escape(driverId) + '"]')) {
+      const option = new Option(button.getAttribute('data-driver-label'), driverId, true, true);
+      option.dataset.dynamic = 'true';
+      driverSelect.add(option);
+    }
+    driverSelect.value = driverId || '';
+    document.getElementById('bus_status').value = button.getAttribute('data-status');
+    title.textContent = 'Edit bus';
+    submitButton.textContent = 'Update bus';
+    errorBox.classList.add('d-none');
+  });
+
+  deleteModal.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) return;
+    currentId = button.getAttribute('data-id');
+    document.getElementById('deleteBusName').textContent = button.getAttribute('data-name');
+    deleteError.classList.add('d-none');
+    deleteError.textContent = '';
+  });
+
+  form.addEventListener('submit', function(event) {
+    event.preventDefault();
+    fetch('{% url "buses:bus_save_ajax" %}', {method: 'POST', headers: {'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value}, body: new FormData(form)})
+      .then(response => response.json().then(data => ({response, data}))).then(({response, data}) => {
+        if (!response.ok || data.error) { errorBox.textContent = data.error || 'Unable to save bus.'; errorBox.classList.remove('d-none'); return; }
+        refreshAfterClose(modal);
+      }).catch(() => { errorBox.textContent = 'Something went wrong.'; errorBox.classList.remove('d-none'); });
+  });
+
+  document.getElementById('confirmDeleteBusBtn').addEventListener('click', function() {
+    if (!currentId) return;
+    fetch('{% url "buses:bus_delete_ajax" 0 %}'.replace('/0/', '/' + currentId + '/'), {method: 'POST', headers: {'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value}})
+      .then(response => response.json().then(data => ({response, data}))).then(({response, data}) => {
+        if (!response.ok || data.error) { deleteError.textContent = data.error || 'Unable to delete bus.'; deleteError.classList.remove('d-none'); return; }
+        refreshAfterClose(deleteModal);
+      });
+  });
+})();
+</script>
+{% endblock %}

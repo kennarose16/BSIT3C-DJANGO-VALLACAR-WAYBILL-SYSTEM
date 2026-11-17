@@ -24,6 +24,9 @@ urlpatterns = [
     path('', include('apps.core.urls')),
     path('users/', include('apps.users.urls')),
     path('info/', include('apps.info.urls')),
+    path('drivers/', include('apps.drivers.urls')),
+    path('buses/', include('apps.buses.urls')),
+    path('fleet/', include('apps.fleet.urls')),
 ]
 
 if settings.DEBUG:

@@ -1,4 +1,5 @@
-from datetime import timedelta
+from calendar import monthrange
+from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
@@ -9,6 +10,9 @@ from django.core.validators import validate_email
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
+
+from apps.buses.models import Bus, BusRoute
+from apps.drivers.models import Driver
 
 User = get_user_model()
 
@@ -138,9 +142,81 @@ def logout_view(request):
     return redirect('login')
 
 
+def _build_availability_calendar(year, month, active_bus_count, active_driver_count):
+    first_day = date(year, month, 1)
+    days_in_month = monthrange(year, month)[1]
+    offset = first_day.weekday()
+    cells = []
+
+    for _ in range(offset):
+        cells.append({'day': '', 'is_blank': True, 'available_buses': 0, 'available_drivers': 0})
+
+    for day in range(1, days_in_month + 1):
+        day_date = date(year, month, day)
+        is_today = day_date == timezone.now().date()
+        cells.append({
+            'day': day,
+            'is_blank': False,
+            'is_today': is_today,
+            'available_buses': active_bus_count,
+            'available_drivers': active_driver_count,
+        })
+
+    while len(cells) % 7 != 0:
+        cells.append({'day': '', 'is_blank': True, 'available_buses': 0, 'available_drivers': 0})
+
+    return cells
+
+
 @login_required(login_url='login')
 def home(request):
-    return render(request, 'home.html')
+    bus_count = Bus.objects.count()
+    driver_count = Driver.objects.count()
+    active_bus_count = Bus.objects.filter(status='active').count()
+    active_driver_count = Driver.objects.filter(is_active=True).count()
+    maintenance_bus_count = Bus.objects.filter(status='maintenance').count()
+
+    operational_bus_percentage = round((active_bus_count / bus_count) * 100) if bus_count else 0
+    driver_percentage = round((active_driver_count / driver_count) * 100) if driver_count else 0
+
+    buses = Bus.objects.select_related('driver').prefetch_related('routes')[:6]
+    recent_routes = BusRoute.objects.select_related('bus').filter(is_active=True)[:5]
+    active_drivers = Driver.objects.filter(is_active=True)[:5]
+
+    today = timezone.now().date()
+    calendar_cells = _build_availability_calendar(today.year, today.month, active_bus_count, active_driver_count)
+
+    technicians = [
+        {'name': 'Maya Chen', 'role': 'Lead Electrician', 'status': 'Available', 'shift': '07:00 - 15:00', 'tone': 'success'},
+        {'name': 'Jon Alvarez', 'role': 'Brake Specialist', 'status': 'On Call', 'shift': '09:00 - 17:00', 'tone': 'warning'},
+        {'name': 'Trisha Cole', 'role': 'Diagnostics', 'status': 'Busy', 'shift': '08:00 - 16:00', 'tone': 'danger'},
+        {'name': 'Omar Yusuf', 'role': 'Inspection', 'status': 'Available', 'shift': '12:00 - 20:00', 'tone': 'success'},
+    ]
+
+    alerts = [
+        {'title': 'Bus 204 inspection overdue', 'detail': 'Brake check due 2 days ago', 'severity': 'critical'},
+        {'title': 'Route 15 fuel anomaly', 'detail': 'Consumption 14% above baseline', 'severity': 'warning'},
+        {'title': 'Driver 11 cert renewal', 'detail': 'License renewal pending this week', 'severity': 'info'},
+    ]
+
+    return render(request, 'home.html', {
+        'driver_count': driver_count,
+        'active_driver_count': active_driver_count,
+        'bus_count': bus_count,
+        'active_bus_count': active_bus_count,
+        'route_count': BusRoute.objects.count(),
+        'maintenance_bus_count': maintenance_bus_count,
+        'operational_bus_percentage': operational_bus_percentage,
+        'driver_percentage': driver_percentage,
+        'buses': buses,
+        'recent_routes': recent_routes,
+        'active_drivers': active_drivers,
+        'technicians': technicians,
+        'alerts': alerts,
+        'calendar_cells': calendar_cells,
+        'calendar_month': today.strftime('%B %Y'),
+        'today_date': today,
+    })
 
 
 @require_http_methods(['GET', 'POST'])
