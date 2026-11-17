@@ -237,6 +237,34 @@ html {
   border-radius: var(--tblr-border-radius);
 }
 
+.modal-backdrop {
+  z-index: 1050 !important;
+}
+
+.modal {
+  z-index: 1055 !important;
+}
+
+.modal-dialog,
+.modal-content,
+.modal-header,
+.modal-body,
+.modal-footer,
+.modal form {
+  position: relative;
+  z-index: 51;
+  pointer-events: auto;
+}
+
+.modal input,
+.modal select,
+.modal textarea,
+.modal button,
+.modal label,
+.modal .form-check {
+  pointer-events: auto;
+}
+
 .modal-content {
   border-radius: var(--tblr-border-radius-lg);
   border: 1px solid var(--tblr-border-color);

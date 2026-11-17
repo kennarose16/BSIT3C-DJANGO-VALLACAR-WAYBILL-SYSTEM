@@ -106,6 +106,8 @@
     bootstrap.Modal.getOrCreateInstance(element).hide();
   }
 
+  modal.addEventListener('hidden.bs.modal', resetForm);
+
   modal.addEventListener('show.bs.modal', function(event) {
     const button = event.relatedTarget;
     if (!button || button.getAttribute('data-mode') !== 'edit') { resetForm(); return; }

@@ -103,7 +103,32 @@
         mainContentFrame.dataset.currentUrl = event.detail.url.href;
       });
 
+      function clearStaleModalState() {
+        document.querySelectorAll('.modal-backdrop').forEach(function (node) {
+          node.remove();
+        });
+        document.querySelectorAll('.modal.show').forEach(function (node) {
+          const instance = bootstrap.Modal.getInstance(node);
+          if (instance) {
+            instance.hide();
+          }
+          node.classList.remove('show');
+          node.style.display = 'none';
+        });
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }
+
+      document.addEventListener('click', function (event) {
+        const trigger = event.target.closest('[data-bs-toggle="modal"]');
+        if (trigger) {
+          clearStaleModalState();
+        }
+      });
+
       window.refreshMainContent = function () {
+        clearStaleModalState();
         const frame = document.getElementById("main-content");
         const url = frame.dataset.currentUrl;
         if (frame.getAttribute("src") === url) {
@@ -112,6 +137,9 @@
           frame.src = url;
         }
       };
+
+      document.addEventListener('hidden.bs.modal', clearStaleModalState);
+      document.addEventListener('DOMContentLoaded', clearStaleModalState);
 
       function updateActiveSidebarLink() {
         document.querySelectorAll(".dh-sidebar .nav-link").forEach(function (link) {

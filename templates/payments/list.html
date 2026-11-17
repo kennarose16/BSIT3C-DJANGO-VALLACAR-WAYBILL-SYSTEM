@@ -1,0 +1,109 @@
+{% extends "theme/base.html" %}
+{% block content %}
+<div class="container-xl">
+  <div class="page-header d-print-none mb-4">
+    <div class="row align-items-center">
+      <div class="col">
+        <div class="page-pretitle">Finance</div>
+        <h2 class="page-title mb-0">Automatic Payments</h2>
+      </div>
+      <div class="col-auto ms-auto">
+        <form method="post" action="{% url 'payments:process_payments' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-credit-card me-2"></i>Process due payments
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-4">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted">Scheduled</div>
+              <div class="h2 mb-0">₱{{ scheduled_total|floatformat:2 }}</div>
+            </div>
+            <span class="avatar bg-warning-lt text-warning"><i class="fas fa-clock"></i></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted">Paid</div>
+              <div class="h2 mb-0">₱{{ paid_total|floatformat:2 }}</div>
+            </div>
+            <span class="avatar bg-success-lt text-success"><i class="fas fa-check-circle"></i></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-muted">Auto Pay</div>
+              <div class="h2 mb-0">{{ payments|length }}</div>
+            </div>
+            <span class="avatar bg-primary-lt text-primary"><i class="fas fa-wallet"></i></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Payment schedule</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Target</th>
+            <th>Method</th>
+            <th>Amount</th>
+            <th>Due date</th>
+            <th>Frequency</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payment in payments %}
+          <tr>
+            <td class="fw-semibold">{{ payment.reference_number }}</td>
+            <td>{{ payment.target_name }}</td>
+            <td>{{ payment.payment_method }}</td>
+            <td>₱{{ payment.amount }}</td>
+            <td>{{ payment.due_date }}</td>
+            <td>{{ payment.get_frequency_display }}</td>
+            <td>
+              {% if payment.status == 'paid' %}
+                <span class="badge bg-success-lt text-success">{{ payment.get_status_display }}</span>
+              {% elif payment.status == 'failed' %}
+                <span class="badge bg-danger-lt text-danger">{{ payment.get_status_display }}</span>
+              {% else %}
+                <span class="badge bg-warning-lt text-warning">{{ payment.get_status_display }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">No automatic payment records available.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
