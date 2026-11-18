@@ -107,6 +107,11 @@ else:
 
 WAYBILL_RATE_MULTIPLIER = os.getenv('WAYBILL_RATE_MULTIPLIER', '25.00')
 WAYBILL_DEFAULT_BASE_RATE = os.getenv('WAYBILL_DEFAULT_BASE_RATE', '50.00')
+EMAIL_BACKEND = os.getenv(
+    'WAYBILL_EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.getenv('WAYBILL_DEFAULT_FROM_EMAIL', 'Waybill <no-reply@localhost>')
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

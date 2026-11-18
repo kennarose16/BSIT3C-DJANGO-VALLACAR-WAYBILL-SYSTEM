@@ -146,7 +146,7 @@
 </div>
 
 <div class="modal modal-blur fade" id="proofLightbox" tabindex="-1" aria-labelledby="proofLightboxTitle" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title" id="proofLightboxTitle">Proof of delivery</h5><button type="button" class="btn-close" aria-label="Close"></button></div>
     <div class="modal-body">
       <img id="proofLightboxImage" class="d-block mx-auto rounded" alt="Received delivery proof" style="max-width: 100%; max-height: 65vh; object-fit: contain;">
@@ -175,6 +175,12 @@
   const proofPreviewContainer = document.getElementById('proofPreviewContainer');
   const proofPreviewImage = document.getElementById('proofPreviewImage');
   const proofLightbox = document.getElementById('proofLightbox');
+  document.querySelectorAll('body > #proofLightbox').forEach(function(previousLightbox) {
+    const previousInstance = bootstrap.Modal.getInstance(previousLightbox);
+    if (previousInstance) previousInstance.dispose();
+    previousLightbox.remove();
+  });
+  document.body.appendChild(proofLightbox);
   const proofLightboxClose = proofLightbox.querySelector('.btn-close');
   const searchInput = document.querySelector('input[name="q"]');
   const paymentFilter = document.querySelector('select[name="payment_status"]');

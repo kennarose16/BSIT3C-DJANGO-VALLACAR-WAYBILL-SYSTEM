@@ -1,5 +1,4 @@
-from calendar import monthrange
-from datetime import date, timedelta
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
@@ -7,12 +6,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+from django.db.models import Sum
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from apps.buses.models import Bus, BusRoute
 from apps.drivers.models import Driver
+from apps.transactions.models import Transaction
 
 User = get_user_model()
 
@@ -142,32 +143,6 @@ def logout_view(request):
     return redirect('login')
 
 
-def _build_availability_calendar(year, month, active_bus_count, active_driver_count):
-    first_day = date(year, month, 1)
-    days_in_month = monthrange(year, month)[1]
-    offset = first_day.weekday()
-    cells = []
-
-    for _ in range(offset):
-        cells.append({'day': '', 'is_blank': True, 'available_buses': 0, 'available_drivers': 0})
-
-    for day in range(1, days_in_month + 1):
-        day_date = date(year, month, day)
-        is_today = day_date == timezone.now().date()
-        cells.append({
-            'day': day,
-            'is_blank': False,
-            'is_today': is_today,
-            'available_buses': active_bus_count,
-            'available_drivers': active_driver_count,
-        })
-
-    while len(cells) % 7 != 0:
-        cells.append({'day': '', 'is_blank': True, 'available_buses': 0, 'available_drivers': 0})
-
-    return cells
-
-
 @login_required(login_url='login')
 def home(request):
     bus_count = Bus.objects.count()
@@ -180,24 +155,39 @@ def home(request):
     driver_percentage = round((active_driver_count / driver_count) * 100) if driver_count else 0
 
     buses = Bus.objects.select_related('driver').prefetch_related('routes')[:6]
-    recent_routes = BusRoute.objects.select_related('bus').filter(is_active=True)[:5]
-    active_drivers = Driver.objects.filter(is_active=True)[:5]
+    today = timezone.localdate()
+    today_transactions = Transaction.objects.filter(created_at__date=today)
+    trips_today = today_transactions.count()
+    completed_trips_today = today_transactions.filter(status=Transaction.Status.COMPLETED).count()
+    revenue_today = today_transactions.filter(
+        payment_status=Transaction.PaymentStatus.PAID,
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    pending_proof_count = Transaction.objects.filter(
+        status__in=[Transaction.Status.PENDING, Transaction.Status.IN_TRANSIT],
+        proof_image='',
+    ).count()
+    unassigned_bus_count = Bus.objects.filter(status=Bus.Status.ACTIVE, driver__isnull=True).count()
+    recent_transactions = Transaction.objects.select_related('bus').order_by('-created_at')[:6]
 
-    today = timezone.now().date()
-    calendar_cells = _build_availability_calendar(today.year, today.month, active_bus_count, active_driver_count)
-
-    technicians = [
-        {'name': 'Maya Chen', 'role': 'Lead Electrician', 'status': 'Available', 'shift': '07:00 - 15:00', 'tone': 'success'},
-        {'name': 'Jon Alvarez', 'role': 'Brake Specialist', 'status': 'On Call', 'shift': '09:00 - 17:00', 'tone': 'warning'},
-        {'name': 'Trisha Cole', 'role': 'Diagnostics', 'status': 'Busy', 'shift': '08:00 - 16:00', 'tone': 'danger'},
-        {'name': 'Omar Yusuf', 'role': 'Inspection', 'status': 'Available', 'shift': '12:00 - 20:00', 'tone': 'success'},
-    ]
-
-    alerts = [
-        {'title': 'Bus 204 inspection overdue', 'detail': 'Brake check due 2 days ago', 'severity': 'critical'},
-        {'title': 'Route 15 fuel anomaly', 'detail': 'Consumption 14% above baseline', 'severity': 'warning'},
-        {'title': 'Driver 11 cert renewal', 'detail': 'License renewal pending this week', 'severity': 'info'},
-    ]
+    alerts = []
+    if maintenance_bus_count:
+        alerts.append({
+            'title': f'{maintenance_bus_count} bus{"es" if maintenance_bus_count != 1 else ""} in maintenance',
+            'detail': 'Review fleet availability and maintenance schedules.',
+            'severity': 'warning',
+        })
+    if unassigned_bus_count:
+        alerts.append({
+            'title': f'{unassigned_bus_count} active bus{ "es" if unassigned_bus_count != 1 else ""} unassigned',
+            'detail': 'Assign a driver before dispatch.',
+            'severity': 'info',
+        })
+    if pending_proof_count:
+        alerts.append({
+            'title': f'{pending_proof_count} waybill{ "s" if pending_proof_count != 1 else ""} awaiting proof',
+            'detail': 'Upload a delivery photo to mark received.',
+            'severity': 'warning',
+        })
 
     return render(request, 'home.html', {
         'driver_count': driver_count,
@@ -209,13 +199,14 @@ def home(request):
         'operational_bus_percentage': operational_bus_percentage,
         'driver_percentage': driver_percentage,
         'buses': buses,
-        'recent_routes': recent_routes,
-        'active_drivers': active_drivers,
-        'technicians': technicians,
+        'today': today,
+        'trips_today': trips_today,
+        'completed_trips_today': completed_trips_today,
+        'revenue_today': revenue_today,
+        'unassigned_bus_count': unassigned_bus_count,
+        'pending_proof_count': pending_proof_count,
+        'recent_transactions': recent_transactions,
         'alerts': alerts,
-        'calendar_cells': calendar_cells,
-        'calendar_month': today.strftime('%B %Y'),
-        'today_date': today,
     })
 
 

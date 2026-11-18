@@ -6,60 +6,21 @@
       <div class="col">
         <div class="page-pretitle">Fleet operations</div>
         <h2 class="page-title mb-0">Waybill dashboard</h2>
+        <div class="text-muted small mt-1">{{ today|date:'l, F j, Y' }}</div>
       </div>
       <div class="col-auto ms-auto d-flex gap-2">
         <a class="btn btn-outline-primary" href="{% url 'drivers:driver_list' %}"><i class="fas fa-id-card me-2"></i>Drivers</a>
-        <a class="btn btn-primary" href="{% url 'buses:bus_list' %}"><i class="fas fa-bus me-2"></i>Buses</a>
+        <a class="btn btn-outline-primary" href="{% url 'buses:bus_list' %}"><i class="fas fa-bus me-2"></i>Buses</a>
+        <a class="btn btn-primary" href="{% url 'transactions:transaction_list' %}"><i class="fas fa-receipt me-2"></i>Transactions</a>
       </div>
     </div>
   </div>
 
   <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-3">
-      <div class="card card-sm dashboard-kpi dashboard-kpi-primary">
-        <div class="card-body">
-          <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <div class="text-muted">Active Drivers</div>
-              <div class="h2 mb-0">{{ active_driver_count }}</div>
-            </div>
-            <span class="avatar bg-primary-lt text-primary"><i class="fas fa-user-check"></i></span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-      <div class="card card-sm dashboard-kpi dashboard-kpi-success">
-        <div class="card-body">
-          <div class="d-flex align-items-center justify-content-between">
-            <div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-xl-4">
-      <div class="card dashboard-panel h-100">
-        <div class="card-header">
-          <h3 class="card-title">Fleet Maintenance Alerts</h3>
-        </div>
-        <div class="list-group list-group-flush">
-          {% for alert in alerts %}
-          <div class="list-group-item">
-            <div class="d-flex align-items-start gap-3">
-              <span class="status-marker status-{{ alert.severity }}"></span>
-              <div>
-                <div class="fw-semibold">{{ alert.title }}</div>
-                <div class="text-muted small mt-1">{{ alert.detail }}</div>
-              </div>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
+    <div class="col-sm-6 col-xl-3"><div class="card card-sm dashboard-kpi dashboard-kpi-primary"><div class="card-body"><div class="d-flex align-items-center justify-content-between"><div><div class="text-muted">Active Fleet</div><div class="h2 mb-0">{{ active_bus_count }} <span class="text-muted fs-4">/ {{ bus_count }}</span></div></div><span class="avatar bg-primary-lt text-primary"><i class="fas fa-bus"></i></span></div><div class="text-muted small mt-2">{{ maintenance_bus_count }} in maintenance</div></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card card-sm dashboard-kpi dashboard-kpi-success"><div class="card-body"><div class="d-flex align-items-center justify-content-between"><div><div class="text-muted">Active Drivers</div><div class="h2 mb-0">{{ active_driver_count }} <span class="text-muted fs-4">/ {{ driver_count }}</span></div></div><span class="avatar bg-success-lt text-success"><i class="fas fa-user-check"></i></span></div><div class="text-muted small mt-2">{{ unassigned_bus_count }} active buses unassigned</div></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card card-sm dashboard-kpi dashboard-kpi-info"><div class="card-body"><div class="d-flex align-items-center justify-content-between"><div><div class="text-muted">Trips Today</div><div class="h2 mb-0">{{ trips_today }}</div></div><span class="avatar bg-info-lt text-info"><i class="fas fa-route"></i></span></div><div class="text-muted small mt-2">{{ completed_trips_today }} delivered</div></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card card-sm dashboard-kpi dashboard-kpi-warning"><div class="card-body"><div class="d-flex align-items-center justify-content-between"><div><div class="text-muted">Collected Today</div><div class="h2 mb-0">₱{{ revenue_today|floatformat:2 }}</div></div><span class="avatar bg-warning-lt text-warning"><i class="fas fa-wallet"></i></span></div><div class="text-muted small mt-2">Paid waybills</div></div></div></div>
   </div>
 
   <div class="row g-3">
@@ -110,7 +71,7 @@
     <div class="col-xl-4">
       <div class="card dashboard-panel h-100">
         <div class="card-header">
-          <h3 class="card-title">Operations Summary</h3>
+          <h3 class="card-title">Live operations</h3>
         </div>
         <div class="card-body">
           <div class="mb-3">
@@ -118,13 +79,48 @@
             <div class="progress progress-sm"><div class="progress-bar bg-success" style="width: {{ operational_bus_percentage }}%"></div></div>
           </div>
           <div class="mb-3">
-            <div class="d-flex justify-content-between mb-1"><span class="text-muted">Drivers online</span><strong>{{ active_driver_count }}/{{ driver_count }}</strong></div>
+            <div class="d-flex justify-content-between mb-1"><span class="text-muted">Active drivers</span><strong>{{ active_driver_count }}/{{ driver_count }}</strong></div>
             <div class="progress progress-sm"><div class="progress-bar bg-primary" style="width: {{ driver_percentage }}%"></div></div>
           </div>
-          <div>
-            <div class="d-flex justify-content-between mb-1"><span class="text-muted">Critical alerts</span><strong>{{ alerts|length }}</strong></div>
-            <div class="progress progress-sm"><div class="progress-bar bg-danger" style="width: 52%"></div></div>
+          <div class="d-flex justify-content-between align-items-center mb-2"><h4 class="h4 mb-0">Attention needed</h4><span class="badge bg-warning-lt text-warning">{{ alerts|length }}</span></div>
+          <div class="list-group list-group-flush">
+            {% for alert in alerts %}
+            <div class="list-group-item px-0">
+              <div class="d-flex align-items-start gap-2">
+                <span class="status-marker status-{{ alert.severity }}"></span>
+                <div><div class="fw-semibold">{{ alert.title }}</div><div class="text-muted small mt-1">{{ alert.detail }}</div></div>
+              </div>
+            </div>
+            {% empty %}<div class="text-muted small py-2"><i class="fas fa-circle-check text-success me-2"></i>No operational alerts.</div>{% endfor %}
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row g-3 mt-1">
+    <div class="col-12">
+      <div class="card dashboard-panel">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h3 class="card-title mb-0">Recent waybills</h3>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'transactions:transaction_list' %}">All transactions</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table">
+            <thead><tr><th>Waybill</th><th>Fleet</th><th>Receiver / Destination</th><th>Created</th><th>Trip status</th><th>Payment</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+              {% for transaction in recent_transactions %}
+              <tr>
+                <td class="fw-semibold">{{ transaction.transaction_id }}</td>
+                <td>{{ transaction.bus.fleet_number }}<br><span class="text-muted small">{{ transaction.bus.plate_number }}</span></td>
+                <td>{{ transaction.receiver_name }}<br><span class="text-muted small">{{ transaction.destination }}</span></td>
+                <td>{{ transaction.created_at|date:'M j, H:i' }}</td>
+                <td>{% if transaction.status == 'completed' %}<span class="badge bg-success-lt text-success">Delivered</span>{% elif transaction.status == 'in_transit' %}<span class="badge bg-info-lt text-info">In Transit</span>{% else %}<span class="badge bg-warning-lt text-warning">Pending</span>{% endif %}</td>
+                <td>{% if transaction.payment_status == 'paid' %}<span class="badge bg-success-lt text-success">Paid</span>{% elif transaction.payment_status == 'unpaid' %}<span class="badge bg-warning-lt text-warning">Unpaid</span>{% else %}<span class="badge bg-secondary-lt text-secondary">Pending</span>{% endif %}</td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'transactions:transaction_detail' transaction.pk %}">View</a></td>
+              </tr>
+              {% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No waybills yet.</td></tr>{% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
