@@ -33,8 +33,10 @@
         <dt class="col-sm-4 text-muted">Destination</dt><dd class="col-sm-8">{{ transaction.destination }}</dd>
         <dt class="col-sm-4 text-muted">Waybill amount</dt><dd class="col-sm-8 fw-semibold">{% if transaction.amount != None %}₱{{ transaction.amount|floatformat:2 }}{% else %}Not priced{% endif %}</dd>
         <dt class="col-sm-4 text-muted">Payment status</dt><dd class="col-sm-8">{{ transaction.get_payment_status_display }}</dd>
+        {% if transaction.received_at %}<dt class="col-sm-4 text-muted">Received</dt><dd class="col-sm-8">{{ transaction.received_at|date:'M j, Y H:i' }}</dd>{% endif %}
         <dt class="col-sm-4 text-muted">Created</dt><dd class="col-sm-8">{{ transaction.created_at|date:'M j, Y H:i' }}</dd>
       </dl>
+      {% if transaction.proof_image %}<div class="mt-4"><h4 class="h4">Picture Received</h4><a href="{{ transaction.proof_image.url }}" target="_blank" rel="noopener"><img src="{{ transaction.proof_image.url }}" alt="Proof of delivery for {{ transaction.transaction_id }}" class="rounded border" style="max-width: 100%; max-height: 28rem; object-fit: contain;"></a></div>{% endif %}
     </div>
   </div>
 </div>

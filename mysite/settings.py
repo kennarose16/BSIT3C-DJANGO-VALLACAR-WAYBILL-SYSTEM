@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'apps.buses',
     'apps.payments',
     'apps.transactions',
+    'apps.reports',
     'apps.fleet',
 ]
 
@@ -105,6 +106,7 @@ else:
     }
 
 WAYBILL_RATE_MULTIPLIER = os.getenv('WAYBILL_RATE_MULTIPLIER', '25.00')
+WAYBILL_DEFAULT_BASE_RATE = os.getenv('WAYBILL_DEFAULT_BASE_RATE', '50.00')
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

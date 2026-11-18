@@ -27,6 +27,7 @@ urlpatterns = [
     path('drivers/', include('apps.drivers.urls')),
     path('buses/', include('apps.buses.urls')),
     path('transactions/', include('apps.transactions.urls')),
+    path('reports/', include('apps.reports.urls')),
     path('payments/', include('apps.payments.urls')),
     path('fleet/', include('apps.fleet.urls')),
 ]

@@ -57,6 +57,7 @@
             <th>Amount</th>
             <th>Payment Status</th>
             <th>Trip Status</th>
+            <th>Proof of Delivery</th>
             <th class="w-1">Actions</th>
           </tr>
         </thead>
@@ -70,14 +71,20 @@
             <td>{% if transaction.amount != None %}₱{{ transaction.amount|floatformat:2 }}{% else %}<span class="text-muted">Not priced</span>{% endif %}</td>
             <td>{% if transaction.payment_status == 'paid' %}<span class="badge bg-success-lt text-success">Paid</span>{% elif transaction.payment_status == 'unpaid' %}<span class="badge bg-warning-lt text-warning">Unpaid</span>{% else %}<span class="badge bg-secondary-lt text-secondary">Pending</span>{% endif %}</td>
             <td>{% if transaction.status == 'completed' %}<span class="badge bg-success-lt text-success">Delivered</span>{% elif transaction.status == 'in_transit' %}<span class="badge bg-info-lt text-info">In Transit</span>{% else %}<span class="badge bg-warning-lt text-warning">Pending</span>{% endif %}</td>
+            <td>
+              {% if transaction.status == 'completed' and transaction.proof_image %}
+              <button class="btn btn-ghost-secondary btn-sm p-1" type="button" data-action="view-proof" data-proof-url="{{ transaction.proof_image.url }}" data-transaction-id="{{ transaction.transaction_id }}" data-fleet-number="{{ transaction.bus.fleet_number }}" data-receiver="{{ transaction.receiver_name }}" data-destination="{{ transaction.destination }}" data-received-at="{{ transaction.received_at|date:'M j, Y H:i' }}" aria-label="View proof photo for {{ transaction.transaction_id }}" title="View proof photo"><img src="{{ transaction.proof_image.url }}" alt="Proof of delivery" width="48" height="36" class="rounded" style="object-fit: cover;"></button>
+              {% else %}<span class="text-muted">--</span>{% endif %}
+            </td>
             <td><div class="d-flex gap-1">
               {% if transaction.payment_status != 'paid' %}<button class="btn btn-ghost-success btn-sm" type="button" data-action="mark-paid" data-url="{% url 'transactions:transaction_mark_paid' transaction.pk %}"><i class="fas fa-check me-1"></i>Mark as Paid</button>{% endif %}
+              <label class="btn btn-ghost-primary btn-sm mb-0" for="proof-upload-{{ transaction.pk }}"><i class="fas fa-camera me-1"></i>{% if transaction.proof_image %}Replace Proof{% else %}Upload Proof{% endif %}</label><input id="proof-upload-{{ transaction.pk }}" class="d-none" type="file" accept="image/*" capture="environment" data-action="upload-proof" data-url="{% url 'transactions:transaction_proof_upload' transaction.pk %}">
               <a class="btn btn-ghost-secondary btn-sm" href="{% url 'transactions:transaction_detail' transaction.pk %}"><i class="fas fa-receipt me-1"></i>View Receipt</a>
               <button class="btn btn-ghost-danger btn-sm" type="button" data-action="delete" data-url="{% url 'transactions:transaction_delete' transaction.pk %}"><i class="fas fa-trash me-1"></i>Delete</button>
             </div></td>
           </tr>
           {% empty %}
-          <tr id="transactionsEmpty"><td colspan="8" class="text-center text-muted py-5">No transactions match these filters.</td></tr>
+          <tr id="transactionsEmpty"><td colspan="9" class="text-center text-muted py-5">No transactions match these filters.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -91,7 +98,7 @@
       <h5 class="modal-title" id="transactionModalTitle">Create transaction</h5>
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
     </div>
-    <form id="transactionForm" novalidate>
+    <form id="transactionForm" enctype="multipart/form-data" novalidate>
       {% csrf_token %}
       <div class="modal-body">
         <div id="transactionFormError" class="alert alert-danger d-none" role="alert"></div>
@@ -110,10 +117,15 @@
             {{ form.receiver_name }}
           </div>
           <div class="col-12">
-            <label class="form-label" for="{{ form.destination_choice.id_for_label }}">Destination</label>
-            {{ form.destination_choice }}
+            <label class="form-label" for="{{ form.destination.id_for_label }}">Destination</label>
+            {{ form.destination }}
           </div>
-          <div class="col-md-6"><label class="form-label" for="transactionBaseFare">Destination Base Rate</label><input id="transactionBaseFare" class="form-control" type="text" readonly></div>
+          <div class="col-12">
+            <label class="form-label" for="{{ form.proof_image.id_for_label }}">Picture Received <span class="text-muted fw-normal">(optional)</span></label>
+            {{ form.proof_image }}
+            <div class="mt-2 d-none" id="proofPreviewContainer"><img id="proofPreviewImage" class="rounded border" alt="Selected proof preview" style="max-width: 180px; max-height: 120px; object-fit: cover;"></div>
+          </div>
+          <div class="col-md-6"><label class="form-label" for="transactionBaseFare">Default Base Rate</label><input id="transactionBaseFare" class="form-control" type="text" value="₱{{ default_base_rate|floatformat:2 }}" readonly></div>
           <div class="col-md-6"><label class="form-label" for="{{ form.amount.id_for_label }}">Amount (PHP)</label>{{ form.amount }}<div class="form-hint">Base rate + (fleet capacity × ₱{{ rate_multiplier|floatformat:2 }}); edit to override.</div></div>
           <div class="col-md-6">
             <label class="form-label" for="{{ form.payment_status.id_for_label }}">Payment Status</label>
@@ -133,6 +145,22 @@
   </div></div>
 </div>
 
+<div class="modal modal-blur fade" id="proofLightbox" tabindex="-1" aria-labelledby="proofLightboxTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="proofLightboxTitle">Proof of delivery</h5><button type="button" class="btn-close" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <img id="proofLightboxImage" class="d-block mx-auto rounded" alt="Received delivery proof" style="max-width: 100%; max-height: 65vh; object-fit: contain;">
+      <dl class="row mt-3 mb-0">
+        <dt class="col-sm-3 text-muted">Waybill ID</dt><dd class="col-sm-9" id="proofLightboxWaybill"></dd>
+        <dt class="col-sm-3 text-muted">Fleet No.</dt><dd class="col-sm-9" id="proofLightboxFleet"></dd>
+        <dt class="col-sm-3 text-muted">Receiver</dt><dd class="col-sm-9" id="proofLightboxReceiver"></dd>
+        <dt class="col-sm-3 text-muted">Destination</dt><dd class="col-sm-9" id="proofLightboxDestination"></dd>
+        <dt class="col-sm-3 text-muted">Received</dt><dd class="col-sm-9" id="proofLightboxTimestamp"></dd>
+      </dl>
+    </div>
+  </div></div>
+</div>
+
 <script>
 (function() {
   const modal = document.getElementById('transactionModal');
@@ -142,13 +170,28 @@
   const submitButton = document.getElementById('transactionSubmit');
   const notice = document.getElementById('transactionNotice');
   const busSelect = document.getElementById('{{ form.bus.id_for_label }}');
-  const routeSelect = document.getElementById('{{ form.destination_choice.id_for_label }}');
   const amountInput = document.getElementById('{{ form.amount.id_for_label }}');
+  const proofFileInput = document.getElementById('{{ form.proof_image.id_for_label }}');
+  const proofPreviewContainer = document.getElementById('proofPreviewContainer');
+  const proofPreviewImage = document.getElementById('proofPreviewImage');
+  const proofLightbox = document.getElementById('proofLightbox');
+  const proofLightboxClose = proofLightbox.querySelector('.btn-close');
   const searchInput = document.querySelector('input[name="q"]');
   const paymentFilter = document.querySelector('select[name="payment_status"]');
   const tripFilter = document.querySelector('select[name="trip_status"]');
   const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
   let selectedBus = null;
+  let previewObjectUrl = null;
+
+  proofLightboxClose.addEventListener('click', function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    bootstrap.Modal.getOrCreateInstance(proofLightbox).hide();
+  });
+
+  proofLightbox.addEventListener('hidden.bs.modal', function() {
+    document.getElementById('proofLightboxImage').removeAttribute('src');
+  });
 
   function formatCurrency(value) {
     return new Intl.NumberFormat('en-PH', {style: 'currency', currency: 'PHP'}).format(Number(value || 0));
@@ -174,6 +217,38 @@
     iconElement.className = 'fas ' + icon + ' me-1';
     button.append(iconElement, document.createTextNode(text));
     return button;
+  }
+
+  function makeProofCell(item) {
+    const cell = document.createElement('td');
+    if (item.status !== 'completed' || !item.proof_url) {
+      const emptyText = document.createElement('span');
+      emptyText.className = 'text-muted';
+      emptyText.textContent = '--';
+      cell.append(emptyText);
+      return cell;
+    }
+    const previewButton = document.createElement('button');
+    previewButton.type = 'button';
+    previewButton.className = 'btn btn-ghost-secondary btn-sm p-1';
+    previewButton.dataset.action = 'view-proof';
+    previewButton.dataset.proofUrl = item.proof_url;
+    previewButton.dataset.transactionId = item.transaction_id;
+    previewButton.dataset.fleetNumber = item.fleet_number;
+    previewButton.dataset.receiver = item.receiver_name;
+    previewButton.dataset.destination = item.destination;
+    previewButton.dataset.receivedAt = item.received_at || '';
+    previewButton.setAttribute('aria-label', 'View proof photo for ' + item.transaction_id);
+    const thumbnail = document.createElement('img');
+    thumbnail.src = item.proof_url;
+    thumbnail.alt = 'Proof of delivery';
+    thumbnail.width = 48;
+    thumbnail.height = 36;
+    thumbnail.className = 'rounded';
+    thumbnail.style.objectFit = 'cover';
+    previewButton.append(thumbnail);
+    cell.append(previewButton);
+    return cell;
   }
 
   function makeRow(item) {
@@ -204,17 +279,31 @@
     paymentCell.append(makeBadge(item.payment_status, item.payment_status_display, 'payment'));
     const tripCell = document.createElement('td');
     tripCell.append(makeBadge(item.status, item.status_display, 'trip'));
+    const proofCell = makeProofCell(item);
     const actionsCell = document.createElement('td');
     const actions = document.createElement('div');
     actions.className = 'd-flex gap-1 flex-wrap';
     if (item.payment_status !== 'paid') actions.append(makeAction('Mark as Paid', 'fa-check', 'mark-paid', item.mark_paid_url, 'btn-ghost-success'));
+    const uploadId = 'proof-upload-' + item.id;
+    const uploadLabel = document.createElement('label');
+    uploadLabel.className = 'btn btn-ghost-primary btn-sm mb-0';
+    uploadLabel.htmlFor = uploadId;
+    uploadLabel.innerHTML = '<i class="fas fa-camera me-1"></i>' + (item.proof_url ? 'Replace Proof' : 'Upload Proof');
+    const uploadInput = document.createElement('input');
+    uploadInput.id = uploadId;
+    uploadInput.className = 'd-none';
+    uploadInput.type = 'file';
+    uploadInput.accept = 'image/*';
+    uploadInput.setAttribute('capture', 'environment');
+    uploadInput.dataset.action = 'upload-proof';
+    uploadInput.dataset.url = item.proof_upload_url;
     const receipt = document.createElement('a');
     receipt.className = 'btn btn-ghost-secondary btn-sm';
     receipt.href = item.receipt_url;
     receipt.innerHTML = '<i class="fas fa-receipt me-1"></i>View Receipt';
-    actions.append(receipt, makeAction('Delete', 'fa-trash', 'delete', item.delete_url, 'btn-ghost-danger'));
+    actions.append(uploadLabel, uploadInput, receipt, makeAction('Delete', 'fa-trash', 'delete', item.delete_url, 'btn-ghost-danger'));
     actionsCell.append(actions);
-    row.append(idCell, busCell, peopleCell, destinationCell, amountCell, paymentCell, tripCell, actionsCell);
+    row.append(idCell, busCell, peopleCell, destinationCell, amountCell, paymentCell, tripCell, proofCell, actionsCell);
     return row;
   }
 
@@ -231,7 +320,7 @@
       const empty = document.createElement('tr');
       empty.id = 'transactionsEmpty';
       const cell = document.createElement('td');
-      cell.colSpan = 8;
+      cell.colSpan = 9;
       cell.className = 'text-center text-muted py-5';
       cell.textContent = 'No transactions match these filters.';
       empty.append(cell);
@@ -252,7 +341,6 @@
 
   function loadBusOptions() {
     const busId = busSelect.value;
-    routeSelect.innerHTML = '<option value="">Select destination</option>';
     ['transactionPlate', 'transactionCapacity', 'transactionBaseFare'].forEach(id => { document.getElementById(id).value = ''; });
     amountInput.value = '';
     selectedBus = null;
@@ -264,20 +352,7 @@
         selectedBus = data;
         document.getElementById('transactionPlate').value = data.plate_number;
         document.getElementById('transactionCapacity').value = data.capacity;
-        data.routes.forEach(route => {
-          const option = new Option(route.destination + ' - ' + route.name + ' (PHP ' + Number(route.base_fare).toFixed(2) + ')', 'route:' + route.id);
-          option.dataset.baseFare = route.base_fare;
-          routeSelect.add(option);
-        });
-        data.presets.forEach(preset => {
-          const option = new Option(preset.name + ' (PHP ' + Number(preset.base_fare).toFixed(2) + ')', 'preset:' + preset.key);
-          option.dataset.baseFare = preset.base_fare;
-          routeSelect.add(option);
-        });
-        if (!data.routes.length) {
-          errorBox.textContent = 'No destinations are configured for this bus yet.';
-          errorBox.classList.remove('d-none');
-        }
+        updatePricePreview();
       }).catch(error => {
         errorBox.textContent = error.message;
         errorBox.classList.remove('d-none');
@@ -285,23 +360,37 @@
   }
 
   function updatePricePreview() {
-    const option = routeSelect.selectedOptions[0];
-    if (!selectedBus || !option || !option.dataset.baseFare) {
+    if (!selectedBus) {
       document.getElementById('transactionBaseFare').value = '';
       amountInput.value = '';
       return;
     }
-    const baseFare = Number(option.dataset.baseFare);
+    const baseFare = Number(selectedBus.default_base_rate);
     const amount = baseFare + Number(selectedBus.capacity) * Number(selectedBus.rate_multiplier);
     document.getElementById('transactionBaseFare').value = formatCurrency(baseFare);
     amountInput.value = amount.toFixed(2);
   }
 
   busSelect.addEventListener('change', loadBusOptions);
-  routeSelect.addEventListener('change', updatePricePreview);
+  proofFileInput.addEventListener('change', function() {
+    if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    const image = proofFileInput.files[0];
+    if (!image) {
+      proofPreviewContainer.classList.add('d-none');
+      proofPreviewImage.removeAttribute('src');
+      previewObjectUrl = null;
+      return;
+    }
+    previewObjectUrl = URL.createObjectURL(image);
+    proofPreviewImage.src = previewObjectUrl;
+    proofPreviewContainer.classList.remove('d-none');
+  });
   modal.addEventListener('hidden.bs.modal', function() {
     form.reset();
-    routeSelect.innerHTML = '<option value="">Select destination</option>';
+    if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = null;
+    proofPreviewImage.removeAttribute('src');
+    proofPreviewContainer.classList.add('d-none');
     selectedBus = null;
     ['transactionPlate', 'transactionCapacity', 'transactionBaseFare'].forEach(id => { document.getElementById(id).value = ''; });
     amountInput.value = '';
@@ -332,10 +421,38 @@
       }).finally(() => { submitButton.disabled = false; });
   });
 
+  tableBody.addEventListener('change', function(event) {
+    const input = event.target.closest('input[data-action="upload-proof"]');
+    if (!input || !input.files.length) return;
+    const row = input.closest('tr');
+    const payload = new FormData();
+    payload.append('proof_image', input.files[0]);
+    fetch(input.dataset.url, {method: 'POST', headers: {'X-CSRFToken': csrfToken}, body: payload})
+      .then(response => response.json().then(data => ({response, data})))
+      .then(({response, data}) => {
+        if (!response.ok || data.error) throw new Error(data.error || 'Unable to upload proof photo.');
+        row.replaceWith(makeRow(data.transaction));
+        showNotice('Proof uploaded. Waybill marked as received.', 'success');
+      }).catch(error => {
+        showNotice(error.message, 'danger');
+        input.value = '';
+      });
+  });
+
   tableBody.addEventListener('click', function(event) {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     const action = button.dataset.action;
+    if (action === 'view-proof') {
+      document.getElementById('proofLightboxImage').src = button.dataset.proofUrl;
+      document.getElementById('proofLightboxWaybill').textContent = button.dataset.transactionId;
+      document.getElementById('proofLightboxFleet').textContent = button.dataset.fleetNumber;
+      document.getElementById('proofLightboxReceiver').textContent = button.dataset.receiver;
+      document.getElementById('proofLightboxDestination').textContent = button.dataset.destination;
+      document.getElementById('proofLightboxTimestamp').textContent = button.dataset.receivedAt || 'Received';
+      bootstrap.Modal.getOrCreateInstance(proofLightbox).show();
+      return;
+    }
     if (action === 'delete' && !window.confirm('Delete this transaction? This cannot be undone.')) return;
     button.disabled = true;
     fetch(button.dataset.url, {method: 'POST', headers: {'X-CSRFToken': csrfToken}})

@@ -39,6 +39,8 @@ class Transaction(models.Model):
         default=PaymentStatus.PENDING,
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    proof_image = models.ImageField(upload_to='transaction_proofs/%Y/%m/', blank=True)
+    received_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

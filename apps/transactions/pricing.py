@@ -3,11 +3,8 @@ from decimal import Decimal
 from django.conf import settings
 
 
-DESTINATION_PRESETS = {
-    'route_a': {'name': 'Route A', 'base_fare': Decimal('50.00')},
-    'route_b': {'name': 'Route B', 'base_fare': Decimal('120.00')},
-    'route_c': {'name': 'Route C', 'base_fare': Decimal('200.00')},
-}
+def default_base_rate():
+    return Decimal(str(getattr(settings, 'WAYBILL_DEFAULT_BASE_RATE', '50.00')))
 
 
 def rate_multiplier():
