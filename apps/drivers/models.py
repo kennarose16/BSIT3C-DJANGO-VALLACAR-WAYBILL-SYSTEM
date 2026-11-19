@@ -7,6 +7,7 @@ class Driver(models.Model):
     license_number = models.CharField(max_length=50, unique=True)
     phone_number = models.CharField(max_length=30, blank=True)
     email = models.EmailField(blank=True)
+    profile_picture = models.ImageField(upload_to='driver_profiles/%Y/%m/', blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

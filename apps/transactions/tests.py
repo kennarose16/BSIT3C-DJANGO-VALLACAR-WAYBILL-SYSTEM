@@ -9,6 +9,7 @@ from django.urls import reverse
 from PIL import Image
 
 from apps.buses.models import Bus, BusRoute
+from apps.drivers.models import Driver
 from apps.transactions.models import Transaction
 
 
@@ -53,6 +54,29 @@ class TransactionTests(TestCase):
         self.assertEqual(transaction.payment_status, Transaction.PaymentStatus.UNPAID)
         self.assertEqual(response.json()['transaction']['transaction_id'], f'TXN-{transaction.pk:06d}')
         self.assertEqual(response.json()['transaction']['status_display'], 'In Transit')
+
+    def test_transaction_row_includes_assigned_driver_photo(self):
+        with TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            driver = Driver.objects.create(
+                first_name='Jordan',
+                last_name='Park',
+                license_number='DRIVER-PHOTO-01',
+                profile_picture=self.make_proof_image('driver.png'),
+            )
+            self.bus.driver = driver
+            self.bus.save(update_fields=['driver'])
+            transaction = Transaction.objects.create(
+                bus=self.bus,
+                sender_name='Sender',
+                receiver_name='Receiver',
+                destination='Manila',
+            )
+
+            response = self.client.get(reverse('transactions:transaction_list'))
+
+            self.assertContains(response, str(driver))
+            self.assertContains(response, driver.profile_picture.url)
+            self.assertContains(response, transaction.transaction_id)
 
     def test_manual_destination_calculates_amount_and_accepts_override(self):
         response = self.client.post(reverse('transactions:transaction_create_ajax'), {

@@ -30,7 +30,7 @@ def driver_list(request):
 @login_required(login_url='login')
 def driver_form(request, pk=None):
     driver = get_object_or_404(Driver, pk=pk) if pk else None
-    form = DriverForm(request.POST if request.method == 'POST' else None, instance=driver)
+    form = DriverForm(request.POST if request.method == 'POST' else None, request.FILES if request.method == 'POST' else None, instance=driver)
     if request.method == 'POST' and form.is_valid():
         saved_driver = form.save()
         messages.success(request, f'Driver "{saved_driver}" was saved.')
@@ -47,7 +47,10 @@ def driver_form(request, pk=None):
 def driver_delete(request, pk):
     driver = get_object_or_404(Driver, pk=pk)
     name = str(driver)
+    profile_picture = driver.profile_picture
     driver.delete()
+    if profile_picture:
+        profile_picture.delete(save=False)
     messages.success(request, f'Driver "{name}" was deleted. Assigned buses are now unassigned.')
     return redirect('drivers:driver_list')
 
@@ -66,9 +69,16 @@ def driver_list_ajax(request):
         )
     page = Paginator(drivers, 10).get_page(request.GET.get('page', 1))
     return JsonResponse({
-        'data': list(page.object_list.values(
-            'id', 'first_name', 'last_name', 'license_number', 'phone_number', 'email', 'is_active'
-        )),
+        'data': [{
+            'id': driver.pk,
+            'first_name': driver.first_name,
+            'last_name': driver.last_name,
+            'license_number': driver.license_number,
+            'phone_number': driver.phone_number,
+            'email': driver.email,
+            'is_active': driver.is_active,
+            'profile_picture_url': driver.profile_picture.url if driver.profile_picture else '',
+        } for driver in page.object_list],
         'has_next': page.has_next(),
         'has_prev': page.has_previous(),
         'page': page.number,
@@ -88,6 +98,7 @@ def driver_get_ajax(request, pk):
         'phone_number': driver.phone_number,
         'email': driver.email,
         'is_active': driver.is_active,
+        'profile_picture_url': driver.profile_picture.url if driver.profile_picture else '',
     })
 
 
@@ -104,7 +115,8 @@ def _form_error(form):
 def driver_save_ajax(request):
     driver_id = request.POST.get('id')
     driver = get_object_or_404(Driver, pk=driver_id) if driver_id else Driver()
-    form = DriverForm(request.POST, instance=driver)
+    old_picture = driver.profile_picture
+    form = DriverForm(request.POST, request.FILES, instance=driver)
     if not form.is_valid():
         return JsonResponse({'error': _form_error(form)}, status=400)
     try:
@@ -112,7 +124,13 @@ def driver_save_ajax(request):
     except IntegrityError:
         return JsonResponse({'error': 'That license number is already in use.'}, status=400)
     messages.success(request, f'Driver "{driver}" was saved.')
-    return JsonResponse({'status': 'success', 'id': driver.pk})
+    if old_picture and old_picture.name != driver.profile_picture.name:
+        old_picture.delete(save=False)
+    return JsonResponse({
+        'status': 'success',
+        'id': driver.pk,
+        'profile_picture_url': driver.profile_picture.url if driver.profile_picture else '',
+    })
 
 
 @login_required(login_url='login')
@@ -120,6 +138,9 @@ def driver_save_ajax(request):
 def driver_delete_ajax(request, pk):
     driver = get_object_or_404(Driver, pk=pk)
     name = str(driver)
+    profile_picture = driver.profile_picture
     driver.delete()
+    if profile_picture:
+        profile_picture.delete(save=False)
     messages.success(request, f'Driver "{name}" was deleted. Assigned buses are now unassigned.')
     return JsonResponse({'status': 'deleted'})

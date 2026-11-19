@@ -849,3 +849,30 @@ body,
   color: #fff;
   background: rgba(255, 255, 255, 0.14);
 }
+
+.driver-avatar-image,
+.transaction-driver-avatar {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.transaction-driver-avatar {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+}
+
+.driver-avatar-fallback,
+.transaction-driver-initials {
+  color: #fff;
+  background-color: var(--tblr-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}

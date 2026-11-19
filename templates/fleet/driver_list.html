@@ -22,20 +22,21 @@
   <div class="card">
     <div class="table-responsive">
       <table class="table table-vcenter table-hover card-table">
-        <thead><tr><th>Driver</th><th>License no.</th><th>Phone</th><th>Email</th><th>Assigned buses</th><th>Status</th><th class="w-1">Actions</th></tr></thead>
+        <thead><tr><th>Profile Picture</th><th>Driver</th><th>License no.</th><th>Phone</th><th>Email</th><th>Assigned buses</th><th>Status</th><th class="w-1">Actions</th></tr></thead>
         <tbody>
           {% for driver in drivers %}
           <tr>
+            <td>{% if driver.profile_picture %}<img class="driver-avatar-image" src="{{ driver.profile_picture.url }}" alt="{{ driver }}" width="40" height="40">{% else %}<span class="driver-avatar-fallback" aria-label="{{ driver }} initials">{{ driver.first_name|first|upper }}{{ driver.last_name|first|upper }}</span>{% endif %}</td>
             <td class="fw-semibold">{{ driver }}</td><td>{{ driver.license_number }}</td><td>{{ driver.phone_number|default:"—" }}</td><td>{{ driver.email|default:"—" }}</td>
             <td>{% for bus in driver.buses.all %}<a href="{% url 'buses:bus_list' %}">{{ bus.fleet_number }}</a>{% empty %}<span class="text-muted">Unassigned</span>{% endfor %}</td>
             <td>{% if driver.is_active %}<span class="badge bg-success-lt text-success">Active</span>{% else %}<span class="badge bg-secondary-lt text-secondary">Inactive</span>{% endif %}</td>
             <td><div class="d-flex gap-1">
-              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#driverModal" data-mode="edit" data-id="{{ driver.pk }}" data-first-name="{{ driver.first_name }}" data-last-name="{{ driver.last_name }}" data-license-number="{{ driver.license_number }}" data-phone-number="{{ driver.phone_number }}" data-email="{{ driver.email }}" data-is-active="{{ driver.is_active|yesno:'true,false' }}" title="Edit {{ driver }}"><i class="fas fa-edit text-primary"></i></button>
+              <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#driverModal" data-mode="edit" data-id="{{ driver.pk }}" data-first-name="{{ driver.first_name }}" data-last-name="{{ driver.last_name }}" data-license-number="{{ driver.license_number }}" data-phone-number="{{ driver.phone_number }}" data-email="{{ driver.email }}" data-is-active="{{ driver.is_active|yesno:'true,false' }}" data-photo-url="{% if driver.profile_picture %}{{ driver.profile_picture.url }}{% endif %}" title="Edit {{ driver }}"><i class="fas fa-edit text-primary"></i></button>
               <button type="button" class="btn btn-ghost-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#deleteDriverModal" data-id="{{ driver.pk }}" data-name="{{ driver }}" title="Delete {{ driver }}"><i class="fas fa-trash-alt text-danger"></i></button>
             </div></td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="text-center text-muted py-5">No drivers found.</td></tr>
+          <tr><td colspan="8" class="text-center text-muted py-5">No drivers found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -55,8 +56,9 @@
 <div class="modal modal-blur fade" id="driverModal" tabindex="-1">
   <div class="modal-dialog modal-md modal-dialog-centered"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title" id="driverModalTitle">Add driver</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-    <form id="driverForm">{% csrf_token %}<input type="hidden" name="id" id="driver_id">
+    <form id="driverForm" enctype="multipart/form-data">{% csrf_token %}<input type="hidden" name="id" id="driver_id">
       <div class="modal-body"><div id="driverFormError" class="alert alert-danger d-none" role="alert"></div><div class="row g-3">
+        <div class="col-12"><label class="form-label" for="driver_profile_picture">Profile picture</label><div class="d-flex align-items-center gap-3"><span class="driver-photo-preview"><span id="driverPhotoFallback">DP</span><img id="driverPhotoPreview" class="d-none" alt="Driver profile preview"></span><input class="form-control" type="file" name="profile_picture" id="driver_profile_picture" accept="image/*" capture="user"></div></div>
         <div class="col-md-6"><label class="form-label" for="driver_first_name">First name</label><input class="form-control" type="text" name="first_name" id="driver_first_name" maxlength="100" required></div>
         <div class="col-md-6"><label class="form-label" for="driver_last_name">Last name</label><input class="form-control" type="text" name="last_name" id="driver_last_name" maxlength="100" required></div>
         <div class="col-12"><label class="form-label" for="driver_license_number">License number</label><input class="form-control" type="text" name="license_number" id="driver_license_number" maxlength="50" required></div>
@@ -75,6 +77,37 @@
     <div class="modal-footer"><button type="button" class="btn btn-ghost-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-danger" id="confirmDeleteDriverBtn">Delete</button></div>
   </div></div>
 </div>
+<style>
+  .driver-avatar-image,
+  .driver-avatar-fallback,
+  .driver-photo-preview {
+    display: inline-flex;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .driver-avatar-fallback,
+  .driver-photo-preview {
+    color: #fff;
+    background: #4b2675;
+    font-weight: 700;
+  }
+
+  .driver-photo-preview {
+    overflow: hidden;
+  }
+
+  .driver-photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+</style>
 <script>
 (function() {
   const modal = document.getElementById('driverModal');
@@ -84,16 +117,26 @@
   const title = document.getElementById('driverModalTitle');
   const submitButton = document.getElementById('driverSubmitBtn');
   const deleteError = document.getElementById('deleteDriverError');
+  const photoInput = document.getElementById('driver_profile_picture');
+  const photoPreview = document.getElementById('driverPhotoPreview');
+  const photoFallback = document.getElementById('driverPhotoFallback');
   let currentId = null;
+  let photoPreviewUrl = null;
 
   document.querySelectorAll('#fleetToastContainer .toast').forEach(function(toast) {
     bootstrap.Toast.getOrCreateInstance(toast).show();
   });
 
   function resetForm() {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    photoPreviewUrl = null;
     form.reset();
     document.getElementById('driver_id').value = '';
     document.getElementById('driver_is_active').checked = true;
+    photoPreview.removeAttribute('src');
+    photoPreview.classList.add('d-none');
+    photoFallback.textContent = 'DP';
+    photoFallback.classList.remove('d-none');
     title.textContent = 'Add driver';
     submitButton.textContent = 'Save driver';
     errorBox.classList.add('d-none');
@@ -119,9 +162,32 @@
     document.getElementById('driver_phone_number').value = button.getAttribute('data-phone-number');
     document.getElementById('driver_email').value = button.getAttribute('data-email');
     document.getElementById('driver_is_active').checked = button.getAttribute('data-is-active') === 'true';
+    const photoUrl = button.getAttribute('data-photo-url');
+    const firstInitial = button.getAttribute('data-first-name').charAt(0).toUpperCase();
+    const lastInitial = button.getAttribute('data-last-name').charAt(0).toUpperCase();
+    if (photoUrl) {
+      photoPreview.src = photoUrl;
+      photoPreview.classList.remove('d-none');
+      photoFallback.classList.add('d-none');
+    } else {
+      photoPreview.removeAttribute('src');
+      photoPreview.classList.add('d-none');
+      photoFallback.textContent = firstInitial + lastInitial;
+      photoFallback.classList.remove('d-none');
+    }
     title.textContent = 'Edit driver';
     submitButton.textContent = 'Update driver';
     errorBox.classList.add('d-none');
+  });
+
+  photoInput.addEventListener('change', function() {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    const image = photoInput.files[0];
+    if (!image) return;
+    photoPreviewUrl = URL.createObjectURL(image);
+    photoPreview.src = photoPreviewUrl;
+    photoPreview.classList.remove('d-none');
+    photoFallback.classList.add('d-none');
   });
 
   deleteModal.addEventListener('show.bs.modal', function(event) {

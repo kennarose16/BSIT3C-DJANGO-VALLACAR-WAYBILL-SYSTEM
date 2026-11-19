@@ -65,7 +65,16 @@
           {% for transaction in transactions %}
           <tr data-id="{{ transaction.pk }}" data-search="{{ transaction.transaction_id|lower }} {{ transaction.bus.fleet_number|lower }} {{ transaction.bus.plate_number|lower }} {{ transaction.sender_name|lower }} {{ transaction.receiver_name|lower }} {{ transaction.destination|lower }}" data-payment-status="{{ transaction.payment_status }}" data-trip-status="{{ transaction.status }}">
             <td class="fw-semibold">{{ transaction.transaction_id }}</td>
-            <td><span class="fw-semibold">{{ transaction.bus.fleet_number }}</span><br><span class="text-muted small">{{ transaction.bus.plate_number }}</span></td>
+            <td>
+              <span class="fw-semibold">{{ transaction.bus.fleet_number }}</span><br><span class="text-muted small">{{ transaction.bus.plate_number }}</span>
+              <div class="d-flex align-items-center gap-2 mt-2">
+                {% if transaction.bus.driver %}
+                  {% if transaction.bus.driver.profile_picture %}<img class="transaction-driver-avatar" src="{{ transaction.bus.driver.profile_picture.url }}" alt="{{ transaction.bus.driver }}" width="28" height="28">
+                  {% else %}<span class="transaction-driver-avatar transaction-driver-initials" aria-label="{{ transaction.bus.driver }} initials">{{ transaction.bus.driver.first_name|first|upper }}{{ transaction.bus.driver.last_name|first|upper }}</span>{% endif %}
+                  <span class="text-muted small">{{ transaction.bus.driver }}</span>
+                {% else %}<span class="text-muted small">Unassigned</span>{% endif %}
+              </div>
+            </td>
             <td>{{ transaction.sender_name }}<br><span class="text-muted small">To: {{ transaction.receiver_name }}</span></td>
             <td>{{ transaction.destination }}</td>
             <td>{% if transaction.amount != None %}₱{{ transaction.amount|floatformat:2 }}{% else %}<span class="text-muted">Not priced</span>{% endif %}</td>
@@ -271,6 +280,34 @@
     plate.className = 'text-muted small';
     plate.textContent = item.plate_number;
     busCell.append(document.createTextNode(item.fleet_number), document.createElement('br'), plate);
+    const driverInfo = document.createElement('div');
+    driverInfo.className = 'd-flex align-items-center gap-2 mt-2';
+    if (item.driver_name) {
+      if (item.driver_photo_url) {
+        const driverPhoto = document.createElement('img');
+        driverPhoto.src = item.driver_photo_url;
+        driverPhoto.alt = item.driver_name;
+        driverPhoto.width = 28;
+        driverPhoto.height = 28;
+        driverPhoto.className = 'transaction-driver-avatar';
+        driverInfo.append(driverPhoto);
+      } else {
+        const initials = document.createElement('span');
+        initials.className = 'transaction-driver-avatar transaction-driver-initials';
+        initials.textContent = item.driver_name.split(/\s+/).slice(0, 2).map(part => part.charAt(0).toUpperCase()).join('');
+        driverInfo.append(initials);
+      }
+      const driverName = document.createElement('span');
+      driverName.className = 'text-muted small';
+      driverName.textContent = item.driver_name;
+      driverInfo.append(driverName);
+    } else {
+      const unassigned = document.createElement('span');
+      unassigned.className = 'text-muted small';
+      unassigned.textContent = 'Unassigned';
+      driverInfo.append(unassigned);
+    }
+    busCell.append(driverInfo);
     const peopleCell = document.createElement('td');
     peopleCell.append(document.createTextNode(item.sender_name), document.createElement('br'));
     const receiver = document.createElement('span');

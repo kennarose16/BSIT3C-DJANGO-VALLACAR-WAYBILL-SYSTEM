@@ -18,6 +18,8 @@ def _transaction_data(transaction):
         'transaction_id': transaction.transaction_id,
         'fleet_number': transaction.bus.fleet_number,
         'plate_number': transaction.bus.plate_number,
+        'driver_name': str(transaction.bus.driver) if transaction.bus.driver else '',
+        'driver_photo_url': transaction.bus.driver.profile_picture.url if transaction.bus.driver and transaction.bus.driver.profile_picture else '',
         'sender_name': transaction.sender_name,
         'receiver_name': transaction.receiver_name,
         'destination': transaction.destination,
@@ -66,7 +68,7 @@ def transaction_list(request):
     query = request.GET.get('q', '').strip()
     payment_status = request.GET.get('payment_status', '').strip()
     trip_status = request.GET.get('trip_status', '').strip()
-    transactions = Transaction.objects.select_related('bus').all()
+    transactions = Transaction.objects.select_related('bus__driver').all()
     valid_payment_statuses = {choice[0] for choice in Transaction.PaymentStatus.choices}
     valid_trip_statuses = {choice[0] for choice in Transaction.Status.choices}
     if payment_status in valid_payment_statuses:
